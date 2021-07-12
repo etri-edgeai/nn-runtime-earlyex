@@ -99,7 +99,7 @@ def test_gates(args, trainer,endd= 10000):
         
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--pretrained', type=str, dest='pretrained',    default = "./my_trained/")
+    parser.add_argument('--pretrained', type=str, dest='pretrained',    default = "./checkpoints/")
     parser.add_argument('--best'    ,   type=str, dest='best',          default = "./checkpoints/")
     parser.add_argument('--backbone',   type=str, dest='backbone',      default = 'resnet18')
     parser.add_argument('--dataset',    type=str, dest='dataset',       default = 'cifar10')
