@@ -7,7 +7,7 @@
 <img width="282" alt="arch" src="https://user-images.githubusercontent.com/12655218/125258223-19c64f80-e339-11eb-9767-c46a1a507ecf.PNG">
 
 ## Adding Early Exiting exceptions to Non-linear Activations
-<img width="898" alt="EarlyExit_1" src="https://user-images.githubusercontent.com/12655218/125258674-880b1200-e339-11eb-8f10-07fc36c5a764.PNG">
+<img width="462" alt="EarlyExit_1" src="https://user-images.githubusercontent.com/12655218/125258674-880b1200-e339-11eb-8f10-07fc36c5a764.PNG">
 
 ## Selecting Early Exiting Branches based on Cross Entropy Validation Loss
 <img width="462" alt="val_loss" src="https://user-images.githubusercontent.com/12655218/125258547-6c077080-e339-11eb-9a97-925ce4ebbfa7.PNG">
