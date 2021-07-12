@@ -17,3 +17,12 @@
 <img width="370" alt="table1" src="https://user-images.githubusercontent.com/12655218/125258822-aa9d2b00-e339-11eb-9ede-226c186ff05d.PNG">
 
 We perform experiments on ResNet-18 and ResNet-34
+
+## Usage:
+```
+usage: main.py [-h] [--pretrained PRETRAINED] [--best BEST]
+               [--backbone BACKBONE] [--dataset DATASET] [--dali DALI]
+               [--data_dir DATA_DIR] [--epoch EPOCH] [--device DEVICE]
+               [--num_class NUM_CLASS] [--batch_size BATCH_SIZE]
+               [--workers WORKERS] [--img_size SIZE] [--lr LR] 
+```
