@@ -4,9 +4,7 @@ import torch.nn.functional as F
 from operator import attrgetter
 from utils.exact import Gate, ExAct, ExException
 from copy import deepcopy
-from torchsummary import summary
 import warnings
-from goto import with_goto
 
 class ExNet(object):
     def __init__(self, backbone, num_class=10):
