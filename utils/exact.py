@@ -8,8 +8,6 @@ from torch.nn.modules.conv import Conv2d
 from operator import attrgetter
 from torch.autograd import Variable
 import sys
-from goto import with_goto
-from scipy.stats import entropy
 from torch.distributions import Categorical
 
 class ExException(Exception):
