@@ -1,0 +1,24 @@
+---
+pretrained: "./checkpoints/"
+best: "./checkpoints/"
+backbone: "resnet18"
+dataset: "cifar10" 
+dali: False 
+data_dir:    "/home/jyp/data/imagenet/"
+
+timed:
+  sample: 10000
+
+set_gate:
+  gates: 
+    - 5
+  thresholds:
+    - 0.15
+
+epoch :      30 
+device :     "cuda"  
+num_class :  10 
+batch_size : 256 
+workers :    4 
+img_size :   32 
+lr:         0.0001 
