@@ -2,17 +2,17 @@ import torchvision
 import torchvision.transforms as transforms
 import torch
 
-def get_dataloader(args):
+def get_dataloader(cfg):
     
-    trainset, testset = get_dataset(args)      
-    train_loader   = torch.utils.data.DataLoader(trainset, batch_size= args.batch_size, shuffle=True,  num_workers=args.workers)
-    val_loader     = torch.utils.data.DataLoader(testset,  batch_size= args.batch_size, shuffle=False, num_workers=args.workers)
-    test_loader    = torch.utils.data.DataLoader(testset,  batch_size= 1,               shuffle=True,  num_workers=args.workers)
+    trainset, testset = get_dataset(cfg)      
+    train_loader   = torch.utils.data.DataLoader(trainset, batch_size= cfg['batch_size'], shuffle=True,  num_workers=cfg['workers'])
+    val_loader     = torch.utils.data.DataLoader(testset,  batch_size= cfg['batch_size'], shuffle=False, num_workers=cfg['workers'])
+    test_loader    = torch.utils.data.DataLoader(testset,  batch_size= 1,               shuffle=True,  num_workers=cfg['workers'])
     return train_loader, val_loader, test_loader
 
-def get_dataset(args):
+def get_dataset(cfg):
 
-    if args.dataset == 'cifar10':
+    if cfg['dataset'] == 'cifar10':
         transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
@@ -31,7 +31,7 @@ def get_dataset(args):
         testset = torchvision.datasets.CIFAR10(
             root='/home/jyp/data/cifar10', train=False, download=True, transform=transform_test)
 
-    elif args.dataset == "cifar100":
+    elif cfg['dataset'] == "cifar100":
         transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
@@ -50,7 +50,7 @@ def get_dataset(args):
         testset = torchvision.datasets.CIFAR100(
             root='/home/jyp/data/cifar100', train=False, download=True, transform=transform_test)
 
-    elif args.dataset == 'mnist':
+    elif cfg['dataset'] == 'mnist':
         transform=transforms.Compose([
             transforms.Resize((32, 32)),
             transforms.ToTensor(),

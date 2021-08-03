@@ -8,22 +8,22 @@ from tqdm import tqdm
 import torch.nn as nn
 import pandas as pd
 class Trainer(object):
-    def __init__(self, args):
-        self.args           = args
-        self.batch_size     = args.batch_size
-        self.lr             = args.lr
+    def __init__(self, cfg):
+        self.cfg            = cfg
+        self.batch_size     = cfg['batch_size']
+        self.lr             = cfg['lr']
         self.best           = 0
-        self.device         = torch.device(args.device)
-        self.num_class     = args.num_class
+        self.device         = torch.device(cfg['device'])
+        self.num_class     = cfg['num_class']
 
-        self.trainset, self.testset = get_dataset(args)
-        self.train_loader, self.val_loader, self.test_loader = get_dataloader(args)
+        self.trainset, self.testset = get_dataset(cfg)
+        self.train_loader, self.val_loader, self.test_loader = get_dataloader(cfg)
 
-        self.backbone =  get_backbone(args).cuda()
+        self.backbone =  get_backbone(cfg).cuda()
     
         self.model = ExNet(backbone=self.backbone, num_class = self.num_class)
 
-        # if torch.cuda.device_count() > 1 and args.multigpu:
+        # if torch.cuda.device_count() > 1 and cfg.multigpu:
         #     print("Let's use", torch.cuda.device_count(), "GPUs!")
         #     self.model = nn.DataParallel(self.model)
 
@@ -79,11 +79,11 @@ class Trainer(object):
 
             if acc > self.best and epoch > 1:
            
-                print("best model saved at ",acc ,", ", self.args.save)
-                torch.save(self.model.backbone.state_dict(), self.args.save)
+                print("best model saved at ",acc ,", ", self.cfg.save)
+                torch.save(self.model.backbone.state_dict(), self.cfg.save)
                 self.best = acc
 
-    def branch_init(self,args):
+    def branch_init(self,cfg):
         print("--Freeze Backbone Model...")
         for n, m in self.model.backbone.named_parameters():
            m.requires_grad = False
@@ -98,7 +98,7 @@ class Trainer(object):
         self.model.forward(image.cuda())
                 
         self.criterion   = nn.CrossEntropyLoss()
-        self.optimizer   = torch.optim.Adam(self.model.backbone.parameters(), lr = args.lr)
+        self.optimizer   = torch.optim.Adam(self.model.backbone.parameters(), lr = cfg['lr'])
         self.scheduler   = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[20, 40], gamma=0.5)
 
     def branch_tuning(self, epoch):
@@ -131,7 +131,7 @@ class Trainer(object):
         train_loss=0
 
         self.criterion   = nn.CrossEntropyLoss()
-        self.optimizer   = torch.optim.Adam(self.model.backbone.parameters(), lr = self.args.lr)
+        self.optimizer   = torch.optim.Adam(self.model.backbone.parameters(), lr = self.cfg.lr)
         self.scheduler   = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[10, 20], gamma=0.5)
         corrects = []
         confs   = []
@@ -209,7 +209,7 @@ class Trainer(object):
                 x_np = get_confs[n].cpu().numpy() 
                 x_df = pd.DataFrame(x_np)
                 name ="get_confs["+str(n)+"].csv"
-                x_df.to_csv(name)
+                #x_df.to_csv(name)
                 print("gate: {}, acc: {:.2f}, v_loss: {:.6f}, mean_ent: {:.2f},  max_ent: {:.2f}, min_ent: {:.2f}, std_end: {:.2f}".format(n, acc, v_loss, conf, max , min, std))
             accc = 100.*output_correct/total
             print("output: ",accc)

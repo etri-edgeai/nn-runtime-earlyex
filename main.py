@@ -1,11 +1,11 @@
 import argparse
 import time
-
+import yaml
 from utils.trainer import Trainer
 
 
 
-def backbone_training(args, trainer, epochs = 30):
+def backbone_training(cfg, trainer, epochs = 30):
     print("Trainer backbone model...")
     try:
         for epoch in range(1, epochs):
@@ -17,13 +17,13 @@ def backbone_training(args, trainer, epochs = 30):
 
     return trainer
 
-def backbone_validation(args, trainer):
+def backbone_validation(cfg, trainer):
     trainer.model.backbone.eval()
     trainer.backbone_validation(0)
 
-def branch_training(args, trainer, epochs = 30):
+def branch_training(cfg, trainer, epochs = 30):
     print("Trainer branch init...")
-    trainer.branch_init(args)
+    trainer.branch_init(cfg)
 
     print("1. fine-tuning branch...")
     try:
@@ -37,7 +37,7 @@ def branch_training(args, trainer, epochs = 30):
     ent_list , acc_list = trainer.branch_valid()
     return ent_list, acc_list
 
-def measure_time(args, trainer , endd):
+def measure_time(cfg, trainer , endd):
     endd = endd
     time_list = []
     print("Time checking each early branches")
@@ -74,7 +74,7 @@ def measure_time(args, trainer , endd):
     except KeyboardInterrupt:
        print("Skipping single target testing")
 
-def set_gates(args, trainer, gates=[], thresholds=[]):
+def set_gates(cfg, trainer, gates=[], thresholds=[]):
     print("Setting gates & threshold")    
     for n in range(trainer.model.ex_num):
         trainer.model.set_branch(n,False)
@@ -85,7 +85,7 @@ def set_gates(args, trainer, gates=[], thresholds=[]):
         trainer.model.set_branch(g, True)
         trainer.model.exactly[g].threshold = thresholds[n]
 
-def test_gates(args, trainer,endd= 10000):
+def test_gates(cfg, trainer,endd= 10000):
     print("Check testmode")
     try:
         trainer.model.test_mode = True
@@ -99,38 +99,33 @@ def test_gates(args, trainer,endd= 10000):
         
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--pretrained', type=str, dest='pretrained',    default = "./checkpoints/")
-    parser.add_argument('--best'    ,   type=str, dest='best',          default = "./checkpoints/")
-    parser.add_argument('--backbone',   type=str, dest='backbone',      default = 'resnet18')
-    parser.add_argument('--dataset',    type=str, dest='dataset',       default = 'cifar10')
-    parser.add_argument('--dali',       type=bool,dest='dali',          default = False)
-    parser.add_argument('--data_dir',   type=str, dest='data_dir',      default = '/home/jyp/data/imagenet/')
-    parser.add_argument('--epoch',      type=int, dest='epoch',         default = 30)
-    parser.add_argument('--device',     type=str, dest='device',        default = 'cuda')
-    parser.add_argument('--num_class',  type=int, dest='num_class',     default = 10)
-    parser.add_argument('--batch_size', type=int, dest='batch_size',    default = 256)
-    parser.add_argument('--workers',    type=int, dest='workers',       default = 4)
-    parser.add_argument('--img_size',   type=int, dest='size',          default = 32)
-    parser.add_argument('--lr',         type=float,                     default = 0.0001)
-    
+    parser.add_argument('--config', type=str, default = "./configs/init.yml")
     args = parser.parse_args()
-    args.best = args.best +args.backbone+"_best.pth"
-    args.save = args.pretrained +args.backbone+"_"+args.dataset+"_best.pth"
+    f = open(args.config, 'r')
+    cfg = yaml.load(f)
+    print(cfg['best'])
+    print(cfg['best'])
+
+    cfg['best_path'] = cfg['best'] + cfg['backbone'] + "_best.pth"
+    cfg['save'] = cfg['pretrained'] +cfg['backbone']+"_"+cfg['dataset']+"_best.pth"
 
     print("Trainer init...")
-    trainer = Trainer(args)
+    trainer = Trainer(cfg)
 
-    backbone_training(args, trainer, args.epoch)
+    backbone_training(cfg, trainer, cfg['epoch'])
 
-    backbone_validation(args, trainer)
+    backbone_validation(cfg, trainer)
 
-    branch_training(args, trainer, args.epoch)
+    branch_training(cfg, trainer, cfg['epoch'])
 
-    measure_time(args,trainer,10000)
+    measure_time(cfg,trainer,cfg['timed']['sample'])
 
-    set_gates(args,trainer,[5],[0.15])
+    set_gates(cfg,
+            trainer,
+            cfg['set_gate']['gates'], 
+            cfg['set_gate']['thresholds'])
 
-    test_gates(args,trainer,10000)
+    test_gates(cfg,trainer,cfg['timed']['sample'])
 
 
 

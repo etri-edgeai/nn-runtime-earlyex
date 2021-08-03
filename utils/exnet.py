@@ -47,7 +47,6 @@ class ExNet(object):
         self.exactly[id].branch = branch
 
     def replace(self, model):
-        
         for n, module in model.named_children():
             if len(list(module.children())) > 0:
                 self.replace(module)
