@@ -79,8 +79,8 @@ class Trainer(object):
 
             if acc > self.best and epoch > 1:
            
-                print("best model saved at ",acc ,", ", self.cfg.save)
-                torch.save(self.model.backbone.state_dict(), self.cfg.save)
+                print("best model saved at ",acc ,", ", self.cfg['save'])
+                torch.save(self.model.backbone.state_dict(), self.cfg['save'])
                 self.best = acc
 
     def branch_init(self,cfg):
