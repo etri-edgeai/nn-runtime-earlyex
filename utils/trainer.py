@@ -83,13 +83,13 @@ class Trainer(object):
                 torch.save(self.model.backbone.state_dict(), self.cfg['save'])
                 self.best = acc
 
-    def branch_init(self,cfg):
+    def branch_init(self, cfg):
         print("--Freeze Backbone Model...")
         for n, m in self.model.backbone.named_parameters():
            m.requires_grad = False
 
         print("--Replace Activations into ExACT...")
-        self.model.replace(self.model.backbone)
+        self.model.replace(self.model.backbone, cfg)
         print("--Run initial test drive...")
 
         image , label = self.trainset.__getitem__(0)

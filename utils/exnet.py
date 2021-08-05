@@ -46,16 +46,16 @@ class ExNet(object):
     def set_branch(self, id, branch):
         self.exactly[id].branch = branch
 
-    def replace(self, model):
+    def replace(self, model, cfg):
         for n, module in model.named_children():
             if len(list(module.children())) > 0:
-                self.replace(module)
+                self.replace(module, cfg)
     
             if isinstance(module, nn.ReLU):
                 old = getattr(model, n)
                 new = nn.Sequential(
                     Gate(id=self.ex_num, exnet=self),
-                    ExAct(id=self.ex_num, num_class=self.num_class, exnet=self),
+                    ExAct(id=self.ex_num, num_class=self.num_class, exnet=self, cfg=cfg),
                     ).cuda()     
                 setattr(model, n, new)
 

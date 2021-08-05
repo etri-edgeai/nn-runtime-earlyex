@@ -6,6 +6,7 @@ from utils.trainer import Trainer
 
 
 def backbone_training(cfg, trainer, epochs = 30):
+
     print("Trainer backbone model...")
     try:
         for epoch in range(1, epochs):
@@ -21,13 +22,13 @@ def backbone_validation(cfg, trainer):
     trainer.model.backbone.eval()
     trainer.backbone_validation(0)
 
-def branch_training(cfg, trainer, epochs = 30):
+def branch_training(cfg, trainer):
     print("Trainer branch init...")
     trainer.branch_init(cfg)
 
     print("1. fine-tuning branch...")
     try:
-        for epoch in range(1, epochs):
+        for epoch in range(1, cfg['branch_training']['epoch']):
             trainer.branch_tuning(epoch)
             trainer.scheduler.step()
             trainer.branch_valid()
@@ -112,11 +113,11 @@ def main():
     print("Trainer init...")
     trainer = Trainer(cfg)
 
-    backbone_training(cfg, trainer, cfg['epoch'])
+    backbone_training(cfg, trainer, cfg['backbone_training']['epoch'])
 
     backbone_validation(cfg, trainer)
 
-    branch_training(cfg, trainer, cfg['epoch'])
+    branch_training(cfg, trainer)
 
     measure_time(cfg,trainer,cfg['timed']['sample'])
 

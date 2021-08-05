@@ -5,6 +5,11 @@ backbone: "resnet18"
 dataset: "cifar10" 
 dali: False 
 data_dir:    "/home/jyp/data/imagenet/"
+device: "cuda"
+num_class :  10 
+batch_size : 256 
+workers :    4 
+img_size :   32
 
 timed:
   sample: 10000
@@ -15,10 +20,14 @@ set_gate:
   thresholds:
     - 0.15
 
-epoch :      30 
-device :     "cuda"  
-num_class :  10 
-batch_size : 256 
-workers :    4 
-img_size :   32 
-lr:         0.0001 
+lr: 0.001
+
+backbone_training:
+  epoch : 50 
+  
+branch_training:
+  epoch : 10
+
+branch:
+  hidden: 4
+  size: 4

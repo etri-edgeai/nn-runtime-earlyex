@@ -71,7 +71,7 @@ class Gate(nn.Module):
         return x
 
 class ExAct(nn.Module):
-    def __init__(self,activation="relu", num_class=10, id=0, exnet=None ):
+    def __init__(self,activation="relu", num_class=10, id=0, exnet=None ,cfg=None ):
         super(ExAct, self).__init__()
         self.id = id
         self.branch = False
@@ -80,8 +80,8 @@ class ExAct(nn.Module):
         self.exnet = exnet
 
         self.activation = nn.ReLU()    
-        self.hidden = 32
-        self.size = 32
+        self.hidden = cfg['branch']['hidden']
+        self.size =   cfg['branch']['size'] 
         self.expansion = self.size * self.size
         
         self.tim = 1.0
