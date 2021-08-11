@@ -16,7 +16,7 @@ timed:
 
 set_gate:
   gates: 
-    - 5
+    - 5 
   thresholds:
     - 0.15
 
@@ -24,10 +24,11 @@ lr: 0.001
 
 backbone_training:
   epoch : 50 
+  backbone_path: ""
   
 branch_training:
-  epoch : 10
+  epoch : 30
 
 branch:
-  hidden: 4
-  size: 4
+  hidden: 8
+  size: 8
