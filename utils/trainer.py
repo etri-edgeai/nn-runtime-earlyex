@@ -16,8 +16,7 @@ class Trainer(object):
         self.device         = torch.device(cfg['device'])
         self.num_class     = cfg['num_class']
 
-        self.trainset, self.testset = get_dataset(cfg)
-        self.train_loader, self.val_loader, self.test_loader = get_dataloader(cfg)
+        self.train_loader, self.val_loader, self.test_loader, self.trainset, self.testset = get_dataloader(cfg)
 
         self.backbone =  get_backbone(cfg).cuda()
     
@@ -85,8 +84,8 @@ class Trainer(object):
 
     def branch_init(self, cfg):
         print("--Freeze Backbone Model...")
-        for n, m in self.model.backbone.named_parameters():
-           m.requires_grad = False
+        # for n, m in self.model.backbone.named_parameters():
+        #    m.requires_grad = False
 
         print("--Replace Activations into ExACT...")
         self.model.replace(self.model.backbone, cfg)
