@@ -8,7 +8,7 @@ def get_dataloader(cfg):
     train_loader   = torch.utils.data.DataLoader(trainset, batch_size= cfg['batch_size'], shuffle=True,  num_workers=cfg['workers'])
     val_loader     = torch.utils.data.DataLoader(testset,  batch_size= cfg['batch_size'], shuffle=False, num_workers=cfg['workers'])
     test_loader    = torch.utils.data.DataLoader(testset,  batch_size= 1,               shuffle=True,  num_workers=cfg['workers'])
-    return train_loader, val_loader, test_loader
+    return train_loader, val_loader, test_loader, trainset, testset
 
 def get_dataset(cfg):
 
