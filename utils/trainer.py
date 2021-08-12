@@ -11,26 +11,28 @@ class Trainer(object):
     def __init__(self, cfg):
         self.cfg            = cfg
         self.batch_size     = cfg['batch_size']
-        self.lr             = cfg['lr']
         self.best           = 0
         self.device         = torch.device(cfg['device'])
-        self.num_class     = cfg['num_class']
 
         self.train_loader, self.val_loader, self.test_loader, self.trainset, self.testset = get_dataloader(cfg)
+        self.backbone =  get_backbone(cfg).cuda()    
+        self.model = ExNet(backbone=self.backbone, num_class = cfg['num_class'])
 
-        self.backbone =  get_backbone(cfg).cuda()
-    
-        self.model = ExNet(backbone=self.backbone, num_class = self.num_class)
-
-        # if torch.cuda.device_count() > 1 and cfg.multigpu:
-        #     print("Let's use", torch.cuda.device_count(), "GPUs!")
-        #     self.model = nn.DataParallel(self.model)
-
+    def backbone_training(self):
         self.criterion   = nn.CrossEntropyLoss()
-        self.optimizer   = torch.optim.Adam(self.model.backbone.parameters(), lr=self.lr)
-        self.scheduler   = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[10, 20], gamma=0.5)
-            
-    def backbone_training(self, epoch):
+        self.optimizer   = torch.optim.Adam(self.model.backbone.parameters(), lr = self.cfg['lr'])
+        self.scheduler   = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=self.cfg['backbone_training']['milestone'], gamma=0.5)
+
+        print("Trainer backbone model...")
+        try:
+            for epoch in range(1, self.cfg['backbone_training']['epochs']):
+                self.backbone_train_step(epoch)
+                self.scheduler.step()
+                self.backbone_validation(epoch)
+        except KeyboardInterrupt:
+            print("Skipping baseline training")
+
+    def backbone_train_step(self, epoch):
         print("Epoch " + str(epoch) + ':') 
         tbar = tqdm(self.train_loader)
         train_loss = 0.0
@@ -78,8 +80,8 @@ class Trainer(object):
 
             if acc > self.best and epoch > 1:
            
-                print("best model saved at ",acc ,", ", self.cfg['save'])
-                torch.save(self.model.backbone.state_dict(), self.cfg['save'])
+                print("best model saved at ",acc ,", ", self.cfg['backbone_path'])
+                torch.save(self.model.backbone.state_dict(), self.cfg['backbone_path'])
                 self.best = acc
 
     def branch_init(self, cfg):

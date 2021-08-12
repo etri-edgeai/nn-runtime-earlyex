@@ -1,8 +1,20 @@
 ---
-pretrained: "./checkpoints/"
-best: "./checkpoints/"
-backbone: "resnet18"
-dataset: "cifar10" 
+checkpoints: ./checkpoints
+pretrained: ./checkpoints/state_dicts
+
+backbone: &backbone resnet18
+dataset: &dataset cifar10
+best_path: ./checkpoints/state_dicts/resnet18_cifar10_best.pth
+save: ./checkpoints/state_dicts/resnet18_cifar10_best.pth
+
+best: ./checkpoints/
+backbone: resnet18
+best_path: ${best}${backbone}_best.pth
+
+dataset: 
+  name: "cifar10" 
+  root: "/home/jyp/data/cifar10"
+
 dali: False 
 data_dir:    "/home/jyp/data/imagenet/"
 device: "cuda"

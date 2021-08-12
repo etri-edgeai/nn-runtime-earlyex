@@ -5,18 +5,7 @@ from utils.trainer import Trainer
 
 
 
-def backbone_training(cfg, trainer, epochs = 30):
 
-    print("Trainer backbone model...")
-    try:
-        for epoch in range(1, epochs):
-            trainer.backbone_training(epoch)
-            trainer.scheduler.step()
-            trainer.backbone_validation(epoch)
-    except KeyboardInterrupt:
-        print("Skipping baseline training")
-
-    return trainer
 
 def backbone_validation(cfg, trainer):
     trainer.model.backbone.eval()
@@ -100,33 +89,30 @@ def test_gates(cfg, trainer,endd= 10000):
         
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default = "./configs/init.yml")
+    parser.add_argument('--config', type=str, default = "./configs/test.yml")
     args = parser.parse_args()
     f = open(args.config, 'r')
-    cfg = yaml.load(f)
-    print(cfg['best'])
-    print(cfg['best'])
+    cfg = yaml.safe_load(f)
 
-    cfg['best_path'] = cfg['best'] + cfg['backbone'] + "_best.pth"
-    cfg['save'] = cfg['pretrained'] +cfg['backbone']+"_"+cfg['dataset']+"_best.pth"
+    cfg['backbone_path'] = ''.join(cfg['backbone_path'])
+    cfg['save_path'] = ''.join(cfg['save_path'])
 
-    print("Trainer init...")
     trainer = Trainer(cfg)
 
-    backbone_training(cfg, trainer, cfg['backbone_training']['epoch'])
+    trainer.backbone_training()
 
-    backbone_validation(cfg, trainer)
+    # backbone_validation(cfg, trainer)
 
-    branch_training(cfg, trainer)
+    # branch_training(cfg, trainer)
 
-    measure_time(cfg,trainer,cfg['timed']['sample'])
+    # measure_time(cfg,trainer,cfg['timed']['sample'])
 
-    set_gates(cfg,
-            trainer,
-            cfg['set_gate']['gates'], 
-            cfg['set_gate']['thresholds'])
+    # set_gates(cfg,
+    #         trainer,
+    #         cfg['set_gate']['gates'], 
+    #         cfg['set_gate']['thresholds'])
 
-    test_gates(cfg,trainer,cfg['timed']['sample'])
+    # test_gates(cfg,trainer,cfg['timed']['sample'])
 
 
 
