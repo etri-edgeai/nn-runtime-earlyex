@@ -6,7 +6,7 @@ path:
   model_folder: &model_folder state_dicts/ 
   backbone: &backbone resnet18
   dataset: &dataset cifar10 
-  dataset_path: /home/jyp/data/cifar10
+  dataset_path: ./data/cifar10
 
 backbone_path:
   - *root
