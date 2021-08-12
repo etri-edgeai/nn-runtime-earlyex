@@ -1,0 +1,63 @@
+---
+path: 
+  root: &root ./
+  checkpoints: &checkpoints checkpoints/
+  backbone_folder: &backbone_folder backbone/
+  model_folder: &model_folder state_dicts/ 
+  backbone: &backbone resnet18
+  dataset: &dataset cifar10 
+  dataset_path: /home/jyp/data/cifar10
+
+backbone_path:
+  - *root
+  - *checkpoints
+  - *backbone_folder
+  - *backbone
+  - _
+  - *dataset
+  - _
+  - backbone.pth
+
+save_path:
+  - *root
+  - *checkpoints
+  - *model_folder
+  - *backbone
+  - _
+  - *dataset
+  - _
+  - best.pth
+
+
+dali: False 
+device: cuda
+num_class :  10 
+batch_size : 128
+workers :    4 
+img_size :   32
+
+timed:
+  sample: 10000
+
+set_gate:
+  gates: 
+    - 5 
+  thresholds:
+    - 0.15
+
+lr: 0.001
+
+backbone_training:
+  epochs : 50 
+  milestone:
+    - 10
+    - 20
+  gamma: 0.5
+  
+branch_training:
+  epoch : 30
+  lr: 0.001
+
+branch:
+  hidden: 8
+  size: 8
