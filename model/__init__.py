@@ -2,11 +2,11 @@ import torch
 from model.backbone.resnet import resnet18, resnet34
 
 def get_backbone(cfg):
-    print(cfg['path']['backbone'])
+    print(cfg['backbone'])
     model = None
-    if cfg['path']['backbone'] == "resnet18":
+    if cfg['backbone'] == "resnet18":
         model = resnet18()
-    elif cfg['path']['backbone'] == "resnet34":
+    elif cfg['backbone'] == "resnet34":
         model = resnet34()
 
     print("try to get pretrained backbone")

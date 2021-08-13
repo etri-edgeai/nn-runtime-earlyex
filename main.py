@@ -5,28 +5,6 @@ from utils.trainer import Trainer
 
 
 
-
-
-def backbone_validation(cfg, trainer):
-    trainer.model.backbone.eval()
-    trainer.backbone_validation(0)
-
-def branch_training(cfg, trainer):
-    print("Trainer branch init...")
-    trainer.branch_init(cfg)
-
-    print("1. fine-tuning branch...")
-    try:
-        for epoch in range(1, cfg['branch_training']['epoch']):
-            trainer.branch_tuning(epoch)
-            trainer.scheduler.step()
-            trainer.branch_valid()
-    except :
-        print("Skipping baseline training")
-
-    ent_list , acc_list = trainer.branch_valid()
-    return ent_list, acc_list
-
 def measure_time(cfg, trainer , endd):
     endd = endd
     time_list = []
@@ -101,9 +79,11 @@ def main():
 
     trainer.backbone_training()
 
-    # backbone_validation(cfg, trainer)
+    trainer.backbone_validation(0)
 
-    # branch_training(cfg, trainer)
+    trainer.branch_init()
+
+    trainer.branch_training()
 
     # measure_time(cfg,trainer,cfg['timed']['sample'])
 

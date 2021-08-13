@@ -12,7 +12,7 @@ def get_dataloader(cfg):
 
 def get_dataset(cfg):
 
-    if cfg['path']['dataset'] == 'cifar10':
+    if cfg['dataset'] == 'cifar10':
         transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
@@ -27,7 +27,7 @@ def get_dataset(cfg):
         testset = torchvision.datasets.CIFAR10(
             root = cfg['path']['dataset_path'], train=False, download=True, transform=transform_test)
 
-    elif cfg['path']['dataset']  == "cifar100":
+    elif cfg['dataset']  == "cifar100":
         transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
@@ -46,7 +46,7 @@ def get_dataset(cfg):
         testset = torchvision.datasets.CIFAR100(
             root = cfg['path']['dataset_path'], train=False, download=True, transform=transform_test)
 
-    elif cfg['path']['dataset']  == 'mnist':
+    elif cfg['dataset']  == 'mnist':
         transform=transforms.Compose([
             transforms.Resize((32, 32)),
             transforms.ToTensor(),

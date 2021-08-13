@@ -1,11 +1,12 @@
 ---
+backbone: &backbone resnet18
+dataset: &dataset cifar10 
 path: 
   root: &root ./
   checkpoints: &checkpoints checkpoints/
   backbone_folder: &backbone_folder backbone/
   model_folder: &model_folder state_dicts/ 
-  backbone: &backbone resnet18
-  dataset: &dataset cifar10 
+
   dataset_path: ./data/cifar10
 
 backbone_path:
@@ -32,8 +33,8 @@ save_path:
 dali: False 
 device: cuda
 num_class :  10 
-batch_size : 128
-workers :    4 
+batch_size : 256
+workers :    16
 img_size :   32
 
 timed:
@@ -52,6 +53,9 @@ backbone_training:
   milestone:
     - 10
     - 20
+    - 30
+    - 40
+    - 50
   gamma: 0.5
   
 branch_training:

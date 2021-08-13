@@ -7,6 +7,7 @@ from utils.exnet import ExNet
 from tqdm import tqdm
 import torch.nn as nn
 import pandas as pd
+
 class Trainer(object):
     def __init__(self, cfg):
         self.cfg            = cfg
@@ -17,9 +18,9 @@ class Trainer(object):
         self.train_loader, self.val_loader, self.test_loader, self.trainset, self.testset = get_dataloader(cfg)
         self.backbone =  get_backbone(cfg).cuda()    
         self.model = ExNet(backbone=self.backbone, num_class = cfg['num_class'])
+        self.criterion   = nn.CrossEntropyLoss()
 
     def backbone_training(self):
-        self.criterion   = nn.CrossEntropyLoss()
         self.optimizer   = torch.optim.Adam(self.model.backbone.parameters(), lr = self.cfg['lr'])
         self.scheduler   = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=self.cfg['backbone_training']['milestone'], gamma=0.5)
 
@@ -50,7 +51,7 @@ class Trainer(object):
             self.optimizer.step()
             tbar.set_description('Train loss: %.6f' % (train_loss / ((i + 1) * self.batch_size)))
 
-    def backbone_validation(self, epoch, branch=None):
+    def backbone_validation(self, epoch):
         tbar = tqdm(self.val_loader, desc='\r')
         val_loss = 0.0
         correct = 0
@@ -84,13 +85,13 @@ class Trainer(object):
                 torch.save(self.model.backbone.state_dict(), self.cfg['backbone_path'])
                 self.best = acc
 
-    def branch_init(self, cfg):
+    def branch_init(self):
         print("--Freeze Backbone Model...")
         # for n, m in self.model.backbone.named_parameters():
         #    m.requires_grad = False
 
         print("--Replace Activations into ExACT...")
-        self.model.replace(self.model.backbone, cfg)
+        self.model.replace(self.model.backbone, self.cfg)
         print("--Run initial test drive...")
 
         image , label = self.trainset.__getitem__(0)
@@ -98,9 +99,24 @@ class Trainer(object):
         self.model.backbone.cuda()
         self.model.forward(image.cuda())
                 
-        self.criterion   = nn.CrossEntropyLoss()
-        self.optimizer   = torch.optim.Adam(self.model.backbone.parameters(), lr = cfg['lr'])
+        self.optimizer   = torch.optim.Adam(self.model.backbone.parameters(), lr = self.cfg['lr'])
         self.scheduler   = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[20, 40], gamma=0.5)
+
+    def branch_training(self):
+        print("Trainer branch init...")
+        self.branch_init()
+        print(self.cfg['branch_training']['epoch'])
+        print("1. fine-tuning branch...")
+        try:
+            for epoch in range(1, self.cfg['branch_training']['epoch']):
+                self.branch_tuning(epoch)
+                self.scheduler.step()
+                self.branch_valid()
+        except :
+            print("Skipping baseline training")
+
+        ent_list , acc_list = self.branch_valid()
+        return ent_list, acc_list
 
     def branch_tuning(self, epoch):
         print("Epoch " + str(epoch) + ':') 
@@ -112,9 +128,7 @@ class Trainer(object):
             input = data[0].to(self.device)
             label = data[1].to(self.device)
             pred, conf = self.model.forward(input)
-            
-            #t_loss = self.criterion(pred, label)
-            
+                        
             for n in range(0, self.model.ex_num):
                 mm = n
                 m = self.model.exactly[mm]
@@ -122,7 +136,6 @@ class Trainer(object):
                 losses[mm] += los
                 m.loss = los
             loss = torch.sum(losses)
-            #loss += t_loss 
             loss.backward()
             self.optimizer.step()
 
