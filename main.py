@@ -64,35 +64,38 @@ def test_gates(cfg, trainer,endd= 10000):
         spent = end - start
     except KeyboardInterrupt:
         print("Skipping single target testing")
-        
+
+
+def config(str):
+    f = open(str, 'r')
+    cfg = yaml.safe_load(f)
+    cfg['backbone_path']    = ''.join(cfg['backbone_path'])
+    cfg['model_path']       = ''.join(cfg['model_path'])
+    cfg['dataset_path']     = ''.join(cfg['dataset_path'])
+    cfg['csv_path']         = ''.join(cfg['csv_path'])
+    return cfg
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, default = "./configs/test.yml")
     args = parser.parse_args()
-    f = open(args.config, 'r')
-    cfg = yaml.safe_load(f)
-
-    cfg['backbone_path'] = ''.join(cfg['backbone_path'])
-    cfg['save_path'] = ''.join(cfg['save_path'])
-
+    cfg = config(args.config)
     trainer = Trainer(cfg)
 
-    trainer.backbone_training()
+    # trainer.backbone_training()
 
     trainer.backbone_validation(0)
-
-    trainer.branch_init()
 
     trainer.branch_training()
 
     # measure_time(cfg,trainer,cfg['timed']['sample'])
 
-    # set_gates(cfg,
-    #         trainer,
-    #         cfg['set_gate']['gates'], 
-    #         cfg['set_gate']['thresholds'])
+    set_gates(cfg,
+            trainer,
+            cfg['set_gate']['gates'], 
+            cfg['set_gate']['thresholds'])
 
-    # test_gates(cfg,trainer,cfg['timed']['sample'])
+    test_gates(cfg,trainer,cfg['timed']['sample'])
 
 
 

@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from operator import attrgetter
-from utils.exact import Gate, ExAct, ExException
+from utils.exact import ExAct
+from utils.gate import Gate, ExException
 from copy import deepcopy
 import warnings
 
@@ -80,9 +81,10 @@ class ExNet(object):
             x = self.backbone(x)
             result_pred = x
             result_conf = torch.tensor([1.0],requires_grad=False)
+
         except ExException as e:
             results = e.id-1
-            result_pred = self.exactly[results].pred 
+            result_pred = self.exactly[results].pred
             result_conf = self.exactly[results].conf
         finally:
             assert result_pred != None
