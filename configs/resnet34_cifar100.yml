@@ -1,0 +1,70 @@
+---
+backbone: &backbone resnet34
+dataset: &dataset cifar100
+path: 
+  root: &root ./
+  checkpoints: &checkpoints checkpoints/
+  backbone_folder: &backbone_folder backbone/
+  model_folder: &model_folder state_dicts/
+
+dataset_path: 
+  - *root
+  - data/
+  - *dataset
+  - /
+
+backbone_path:
+  - *root
+  - *checkpoints
+  - *backbone_folder
+  - *backbone
+  - _
+  - *dataset
+  - _
+  - backbone.pth
+
+model_path:
+  - *root
+  - *checkpoints
+  - *model_folder
+  - *backbone
+  - _
+  - *dataset
+  - _
+  - best.pth
+
+dali: False 
+device: cuda:0
+num_class :  100
+batch_size : 256
+workers :    8
+img_size :   32
+
+timed:
+  sample: 10000
+
+set_gate:
+  gates: 
+    - 5 
+  thresholds:
+    - 0.15
+
+lr: 0.001
+
+backbone_training:
+  epochs : 50 
+  milestone:
+    - 10
+    - 20
+    - 30
+    - 40
+    - 50
+  gamma: 0.5
+  
+branch_training:
+  epoch : 30
+  lr: 0.001
+
+branch:
+  hidden: 8
+  size: 8
