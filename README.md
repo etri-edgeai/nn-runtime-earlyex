@@ -18,6 +18,19 @@
 
 We perform experiments on ResNet-18 and ResNet-34
 
+## Requirements:
+The following are required to run this program:
+```
+dataclasses
+numpy
+pandas
+pyyaml
+tqdm
+Pytorch>=1.7.0
+torchvision>=0.8.1
+
+```
+
 ## Usage:
 ```
 usage: main.py [-h] [--pretrained PRETRAINED] [--best BEST]
@@ -26,3 +39,6 @@ usage: main.py [-h] [--pretrained PRETRAINED] [--best BEST]
                [--num_class NUM_CLASS] [--batch_size BATCH_SIZE]
                [--workers WORKERS] [--img_size SIZE] [--lr LR] 
 ```
+
+### Acknowledgement
+This work was supported by Institute of Information & communications Technology Planning & Evaluation (IITP) grant funded by the Korea government(MSIT) (No. 2021-0-00907, Development of Adaptive and Lightweight Edge-Collaborative Analysis Technology for Enabling Proactively Immediate Response and Rapid Learning).
