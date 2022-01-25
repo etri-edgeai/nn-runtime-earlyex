@@ -8,7 +8,6 @@ from pytorch_metric_learning.utils.inference import InferenceModel, MatchFinder
 import faiss 
 import torch.nn as nn
 import os
-from .model.backbone.resnet import resnet18
 
 def config(str):
     f = open(str, 'r')
