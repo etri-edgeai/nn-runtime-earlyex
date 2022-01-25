@@ -80,18 +80,18 @@ class Trainer(object):
                 self.best = acc
 
             if acc > self.best and epoch > 1:
+           
                 print("best model saved at ",acc ,", ", self.cfg['backbone_path'])
                 torch.save(self.model.backbone.state_dict(), self.cfg['backbone_path'])
                 self.best = acc
 
     def branch_init(self):
         print("--Freeze Backbone Model...")
-        for n, m in self.model.backbone.named_parameters():
-           m.requires_grad = False
+        # for n, m in self.model.backbone.named_parameters():
+        #    m.requires_grad = False
 
         print("--Replace Activations into ExACT...")
         self.model.replace(self.model.backbone, self.cfg)
-
         print("--Run initial test drive...")
 
         image , label = self.trainset.__getitem__(0)
@@ -102,29 +102,20 @@ class Trainer(object):
         self.optimizer   = torch.optim.Adam(self.model.backbone.parameters(), lr = self.cfg['lr'])
         self.scheduler   = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[20, 40], gamma=0.5)
 
-        try:
-            self.model.backbone.load_state_dict(torch.load(self.cfg['model_path']),strict=False)
-
-        except RuntimeError as e:
-            print(e)
-        except FileNotFoundError as e:
-            print(e)
-
-
-
     def branch_training(self):
         print("Trainer branch init...")
         self.branch_init()
+        print(self.cfg['branch_training']['epoch'])
         print("1. fine-tuning branch...")
         try:
             for epoch in range(1, self.cfg['branch_training']['epoch']):
                 self.branch_tuning(epoch)
                 self.scheduler.step()
-                self.branch_valid(epoch)
-        except KeyboardInterrupt:
+                self.branch_valid()
+        except :
             print("Skipping baseline training")
 
-        ent_list , acc_list = self.branch_valid(0)
+        ent_list , acc_list = self.branch_valid()
         return ent_list, acc_list
 
     def branch_tuning(self, epoch):
@@ -139,9 +130,10 @@ class Trainer(object):
             pred, conf = self.model.forward(input)
                         
             for n in range(0, self.model.ex_num):
-                m = self.model.exactly[n]
+                mm = n
+                m = self.model.exactly[mm]
                 los = self.criterion(m.pred, label)
-                losses[n] += los
+                losses[mm] += los
                 m.loss = los
             loss = torch.sum(losses)
             loss.backward()
@@ -173,7 +165,7 @@ class Trainer(object):
             loss.backward()
             self.optimizer.step()
 
-    def branch_valid(self, epoch):
+    def branch_valid(self):
         tbar = tqdm(self.val_loader)
         total = 0
         cnt = 0
@@ -230,18 +222,13 @@ class Trainer(object):
                 std = torch.std(get_confs[n])
                 x_np = get_confs[n].cpu().numpy() 
                 x_df = pd.DataFrame(x_np)
-
-                name = self.cfg['csv_path']+"get_confs["+str(n)+"].csv"
-                x_df.to_csv(name)
+                name ="get_confs["+str(n)+"].csv"
+                #x_df.to_csv(name)
                 print("gate: {}, acc: {:.2f}, v_loss: {:.6f}, mean_ent: {:.2f},  max_ent: {:.2f}, min_ent: {:.2f}, std_end: {:.2f}".format(n, acc, v_loss, conf, max , min, std))
             accc = 100.*output_correct/total
             print("output: ",accc)
             acc_list.append(accc)
             ent_list.append(0.0)
-            if acc > self.best and epoch > 1:
-                print("best model saved at ",acc ,", ", self.cfg['model_path'])
-                torch.save(self.model.backbone.state_dict(), self.cfg['model_path'])
-                self.best = acc
 
         return ent_list , acc_list
 
@@ -262,7 +249,9 @@ class Trainer(object):
                         break 
                 input = data[0].to(self.device)
                 label = data[1].to(self.device)
+                
                 total += label.size(0)
+
                 predd = self.model.forward(input)
                 pred = predd[0]
                 conf = predd[1]
