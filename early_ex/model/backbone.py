@@ -5,9 +5,9 @@ from torchvision.models import efficientnet, \
 def get_backbone(cfg):
     m = cfg['backbone']
     backbone = resnet.resnet18(cfg)
-    print("Backbone model type: ",backbone)
+    print("Backbone model type: ", m)
 
-    if m == 'resnet18':
+    if   m == 'resnet18':
         backbone = resnet.resnet18(cfg)
 
     elif m == 'resnet50':
@@ -43,13 +43,13 @@ def get_backbone(cfg):
     elif m == 'efficientnet_b7':
         backbone = efficientnet.efficientnet_b7(pretrained=True)
 
-    elif m == 'inception':
+    elif m == 'inception_v3':
         backbone = inception_v3(pretrained=True)
 
-    elif m == 'vgg_11_bn':
+    elif m == 'vgg11_bn':
         backbone = vgg.vgg11_bn(pretrained=True)
 
-    elif m == 'vgg_16_bn':
+    elif m == 'vgg16_bn':
         backbone = vgg.vgg16_bn(pretrained=True)
 
     elif m == 'vgg_19_bn':
@@ -61,6 +61,7 @@ def get_backbone(cfg):
     elif m == 'wide_resnet101_2':
         backbone = wide_resnet101_2(pretrained=True)
 
+    return backbone
 
     # elif model_type == 'inception':
     #     backbone = inception_v3(pretrained=True)
