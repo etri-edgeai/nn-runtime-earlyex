@@ -1,7 +1,8 @@
 ---
 #### Basic Configuration ####
-backbone: &backbone resnet18
+backbone: &backbone wide_resnet101_2
 dataset: &dataset cifar10
+num_exits: 4
 
 lr: 0.0001
 device: cuda:0
