@@ -1,5 +1,40 @@
 # nn-runtime-earlyex
 
+A tool for Neural Network to achieve early exit results with metric learning based classifiers
+Backbone Training is highly recommended.
+
+## 1. Training Backbone
+1. set configure file backbone.yml
+2. run the following code to train backbone model:
+```
+python train_backbone.py --config ./configs/backbone.yml
+```
+3. run the following code to test backbone model:
+```
+python test_backbone.py --config ./configs/backbone.yml
+```
+
+## 2a. Adding & Training (Cross Entropy) Branch With Calibration
+1. set configure file ce_branch.yml
+2. run the following code to train model:
+```
+python train_ce_branch.py --config ./configs/ce_branch.yml
+```
+3. run the following code to test model:
+```
+python test_ce_branch.py --config ./configs/ce_branch.yml
+```
+## 2b. Adding & Training (Metric) Branch with Calibration
+1. set configure file metric.yml
+2. run the following code to train model:
+```
+python train_me_branch.py --config ./configs/me_branch.yml
+```
+3. run the following code to test model:
+```
+python test_me_branch.py --config ./configs/me_branch.yml
+```
+
 # Improved Early Exiting Activation to Accelerate Edge Inference
 
 ## Overall Architecture
