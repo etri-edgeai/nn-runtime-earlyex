@@ -1,50 +1,33 @@
 ---
 backbone: &backbone resnet18
-dataset: &dataset cifar10 
-path: 
-  root: &root ./
-  checkpoints: &checkpoints checkpoints/
-  backbone_folder: &backbone_folder backbone/
-  model_folder: &model_folder state_dicts/ 
+dataset: &dataset cifar10
 
-  dataset_path: ./data/cifar10
-
-backbone_path:
-  - *root
-  - *checkpoints
-  - *backbone_folder
-  - *backbone
-  - _
-  - *dataset
-  - _
-  - backbone.pth
-
-save_path:
-  - *root
-  - *checkpoints
-  - *model_folder
-  - *backbone
-  - _
-  - *dataset
-  - _
-  - best.pth
-
-
-dali: False 
-device: cuda
-num_class :  10 
+device: cuda:0
+num_class :  10
 batch_size : 256
 workers :    16
 img_size :   32
+
+
 
 timed:
   sample: 10000
 
 set_gate:
   gates: 
-    - 5 
+    - 1
+    - 2
+    - 4
+    - 6
+    - 8
   thresholds:
-    - 0.15
+    - 0.03
+    - 0.02
+    - 0.01
+    - 0.01
+    - 0.01
+    
+    
 
 lr: 0.001
 
@@ -59,9 +42,48 @@ backbone_training:
   gamma: 0.5
   
 branch_training:
-  epoch : 30
+  epoch : 2
   lr: 0.001
 
 branch:
-  hidden: 8
-  size: 8
+  hidden: 10
+  size: 10
+  threshold: 0.16
+
+path: 
+  root: &root ./
+  checkpoints: &checkpoints checkpoints/
+  backbone_folder: &backbone_folder backbone/
+  model_folder: &model_folder state_dicts/ 
+  confidence_folder: &confidence_folder confidence/
+
+dataset_path: 
+  - *root
+  - data/
+  - *dataset
+  - /
+
+backbone_path:
+  - *root
+  - *checkpoints
+  - *backbone_folder
+  - *backbone
+  - _
+  - *dataset
+  - _
+  - backbone.pth
+
+model_path:
+  - *root
+  - *checkpoints
+  - *model_folder
+  - *backbone
+  - _
+  - *dataset
+  - _
+  - best.pth
+
+csv_path:
+  - *root
+  - *checkpoints  
+  - *confidence_folder
