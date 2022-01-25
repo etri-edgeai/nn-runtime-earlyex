@@ -4,17 +4,10 @@ from early_ex.model import Model
 # from early_ex.model.branch import Branch
 import torch.nn.functional as F
 import copy
-class FeatureBlock(nn.Module):
-    def __init__(self, cfg):
-        super().__init__()
-        
-    def forward(self, x):
-        return x
-
     
 class Branch(nn.Module):
     def __init__( 
-        self, num_class=10, cfg=None):
+        self, cfg=None):
 
         super(Branch, self).__init__()
         self.branch_uninitialized = True
@@ -23,7 +16,6 @@ class Branch(nn.Module):
         self.channel = cfg['branch']['channel']
         self.size =   cfg['branch']['size']
         self.feature = cfg['branch']['feature'] 
-        self.activation = nn.ReLU()
         self.temp = False
         self.knn_gate = False
         self.exit = False
@@ -37,6 +29,7 @@ class Branch(nn.Module):
             )
 
     def branch_init(self, input):
+        self.branch_uninitialized = False
         batch, channel, width, height = input.shape
         print(input.shape)
         self.shape = self.channel * self.size * self.size
@@ -48,46 +41,33 @@ class Branch(nn.Module):
             nn.Conv2d(in_channels=channel, 
                         out_channels=self.channel, 
                         kernel_size=1, 
-                        bias=False
-                        ),
+                        bias=False),
             nn.ReLU(),
             nn.AdaptiveAvgPool2d((self.size, self.size)),
             nn.Flatten(),
             nn.Linear(self.shape, self.representation),
             nn.ReLU(),
-            ).to(self.cfg['device'])
-
-
-        middle = self.transform(input)
+            )
 
         self.project = nn.Sequential(
-            nn.Linear(middle.shape[1], self.projection),
-        ).to(self.cfg['device'])
+            nn.Linear(self.representation, self.projection))
 
         self.classifier = nn.Sequential(
-            nn.Linear(middle.shape[1], self.num_class)
-        ).to(self.cfg['device'])
+            nn.Linear(self.representation, self.num_class))
         
-        output = self.classifier(middle)
-
     def forward(self, x):
         if self.branch_uninitialized:
             self.branch_init(x)
-            self.branch_uninitialized = False
 
-        self.repr = self.transform(x)        
+        self.repr = self.transform(x)
         if self.cross:
             self.logits = self.classifier(self.repr)
             if self.temp:
                 self.pred = F.softmax(self.logits/self.temperature, dim=1)
             else:
                 self.pred = F.softmax(self.logits, dim=1) 
-
             self.conf, _ = torch.max(self.pred, 1)
-
         return x
-
-
 
 class DevourModel(Model):
     def __init__(self, cfg, N=3):
@@ -102,7 +82,7 @@ class DevourModel(Model):
         self.tail_layer = nn.Sequential()
         self.gate  = []
         self.n = N
-        self.model_type = "resnet"
+        self.name = "resnet"
 
     def start_count(self):
         self.count = []
@@ -142,7 +122,7 @@ class DevourModel(Model):
     def hunt(self, module):
         print("Hunting Module...")
         for n, m in module.named_children():
-            print(n, '\t', type(m).__name__)
+            print(n, ' ', type(m).__name__)
 
     def bite(self, module, start=0, end=0):
         result = []
@@ -178,40 +158,40 @@ class DevourModel(Model):
         x = self.tail_layer(x)      
         return x  
 
-    def devour(self, backbone, model_type='resnet'):
+    def devour(self, backbone, name='resnet'):
         self.head_list = []
         self.body_list = []
         self.tail_list = []
         
         print("Devouring Module...")
         ### bite model based on types
-        if model_type == 'efficientnet':
+        if 'efficientnet' in name:
             self.hunt(backbone)
             self.head_list = self.bite(backbone.features, start=0, end=0)
             end = len(backbone.features)
             self.body_list = self.bite(backbone.features, start=1, end=end)
             self.tail_list = self.bite(backbone         , start=1, end=2)
 
-        if model_type == 'mobilenet':
+        if 'mobilenet' in name:
             self.hunt(backbone)
             self.head_list = self.bite(backbone.features, start=0, end=0)
             end = len(backbone.features)
             self.body_list = self.bite(backbone.features, start=1, end=end)
             self.tail_list = self.bite(backbone.classifier, start=0, end=2)
 
-        if model_type == 'resnet':
+        if 'resnet' in name:
             self.hunt(backbone)
             self.head_list = self.bite(backbone, start=0, end=3)
             self.body_list = self.bite(backbone, start=4, end=7)
             self.tail_list = self.bite(backbone, start=8, end=9)
 
-        if model_type == 'inception':
+        if 'inception' in name:
             self.hunt(backbone)
-            self.head_list = self.bite(backbone, start=0, end=7)
-            self.body_list = self.bite(backbone, start=8, end=15)
-            self.tail_list = self.bite(backbone, start=17, end=22)
+            self.head_list = self.bite(backbone, start=0, end=6)
+            self.body_list = self.bite(backbone, start=7, end=14)
+            self.tail_list = self.bite(backbone, start=16, end=21)
             
-        if model_type == 'vgg':
+        if 'vgg' in name:
             end = len(backbone.features)
             self.head_list = self.bite(backbone.features, start=0, end=2)
             self.body_list = self.bite(backbone.features, start=3, end=end)
@@ -251,9 +231,9 @@ class DevourModel(Model):
             self.gate.append(False)
             self.temp = False
 
-        ## exfeats layers are extra body layers without early exits
+        ## fetc layers are extra body layers without early exits
         for x in range(self.n, len(final_list)):
-            print('[exfeat layer #{}](size={})'
+            print('[fetc layer #{}](size={})'
                   .format(x, len(final_list[x])))
             print('     || ')
             self.exfeats.append(nn.Sequential(*final_list[x]))
