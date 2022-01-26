@@ -3,6 +3,7 @@ import argparse
 from early_ex.utils import *
 from early_ex.model.devour import DevourModel
 from early_ex.model.backbone import get_backbone
+from early_ex.trainer.ce_branch import CEBranchTrainer
 
 def main():
     print("Devour & Branch Trainer v0.9")
@@ -16,5 +17,8 @@ def main():
 
     model = DevourModel(cfg, N=cfg['num_exits'])
     model.devour(backbone, cfg['backbone'])
+
+    trainer = CEBranchTrainer(model, cfg)
+
 if __name__ == "__main__":
     main()
