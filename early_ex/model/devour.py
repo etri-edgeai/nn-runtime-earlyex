@@ -134,9 +134,7 @@ class DevourModel(Model):
         result = []
         counter = 0
         assert end >= start
-        print("Biting Module...")
         print("start: {}, end: {}".format(start, end))
-        print("Check \t | \t Module name")
         print("----------------------------")
         for n, m in module.named_children():
             name = type(m).__name__
@@ -173,56 +171,74 @@ class DevourModel(Model):
         ### bite model based on types
         if 'efficientnet' in name:
             self.hunt(backbone)
+            print('<head_layer>')
             print("hunting backbone.features")
             self.head_list = self.bite(backbone.features, start=0, end=0)
             end = len(backbone.features)
+            print('<body_layer>')
             print("hunting backbone.features")
             self.body_list = self.bite(backbone.features, start=1, end=end)
+            print('<tail_layer>')
             print("hunting backbone")
             self.tail_list = self.bite(backbone         , start=1, end=2)
 
         if 'mobilenet' in name:
             self.hunt(backbone)
+            print('<head_layer>')
             print("hunting backbone.features")
             self.head_list = self.bite(backbone.features, start=0, end=0)
             end = len(backbone.features)
+            print('<body_layer>')
             print("hunting backbone.features")
             self.body_list = self.bite(backbone.features, start=1, end=end)
+            print('<tail_layer>')
             print("hunting backbone.classifier")
             self.tail_list = self.bite(backbone.classifier, start=0, end=2)
 
         if 'resnet' in name:
             self.hunt(backbone)
+            print('<head_layer>')
             print("hunting backbone")
             self.head_list = self.bite(backbone, start=0, end=3)
+            print('<body_layer>')
             print("hunting backbone")
             self.body_list = self.bite(backbone, start=4, end=7)
+            print('<tail_layer>')
             print("hunting backbone")
             self.tail_list = self.bite(backbone, start=8, end=9)
 
         if 'inception' in name:
             self.hunt(backbone)
+            print('<head_layer>')
             print("hunting backbone")
             self.head_list = self.bite(backbone, start=0, end=6)
+            print('<body_layer>')
             print("hunting backbone")
             self.body_list = self.bite(backbone, start=7, end=14)
+            print('<tail_layer>')
             print("hunting backbone")
             self.tail_list = self.bite(backbone, start=16, end=21)
             
         if 'vgg' in name:
             end = len(backbone.features)
+            print('<head_layer>')
             print("hunting backbone.features")
             self.head_list = self.bite(backbone.features, start=0, end=2)
+            print('<body_layer>')
             print("hunting backbone.features")
             self.body_list = self.bite(backbone.features, start=3, end=end)
+            print('<tail_layer>')
             print("hunting backbone.classifier")
             self.tail_list = self.bite(backbone.classifier, start=0, end=6)
         
         if 'regnet' in name:
+            print('<head_layer>')
             print("hunting backbone")
             self.head_list = self.bite(backbone, start=0, end=0)
+            print('<body_layer>')
             print("hunting backbone.trunk_output")
-            self.body_list = self.bite(backbone.trunk_output,start=0, end=3)            
+            self.body_list = self.bite(backbone.trunk_output,start=0, end=3) 
+            print('<tail_layer>')           
             print("hunting backbone")
             self.tail_list = self.bite(backbone, start=2, end=3)
             
@@ -238,8 +254,10 @@ class DevourModel(Model):
         ## Create body layers
         print("split feats={}, using N={} early exits"
               .format(len(self.body_list), self.n))
-        
-        div = len(self.body_list) / (self.n)
+        N = self.n
+        if self.n == 1:
+            N += 1
+        div = len(self.body_list) / N
         div = int(div)
         print("divide size:",div)
         split_list = lambda test_list, x: [test_list[i:i+x] for i in range(0, len(test_list), x)]
@@ -250,9 +268,15 @@ class DevourModel(Model):
         print("<head layer>")
         print('     || ')
         ## feats layers are body layers with early exits
+        
         for x in range(self.n):
-            print('[feat layer #{}](size={}) -> [exit] #{}'
-                  .format(x, len(final_list[x]), x))
+            l = len(final_list[x])
+            for y in range(l):
+                if y < l-1:
+                    print('[feat layer]')
+                else:
+                    print('[feat layer] -> [exit #{}]'
+                        .format(x))
             print('     || ')
             self.feats.append(nn.Sequential(*final_list[x]))
             self.exits.append(Branch(cfg=self.cfg))
@@ -261,10 +285,10 @@ class DevourModel(Model):
 
         ## fetc layers are extra body layers without early exits
         for x in range(self.n, len(final_list)):
-            print('[fetc layer #{}](size={})'
-                  .format(x, len(final_list[x])))
-            print('     || ')
+            for y in range(len(final_list[x])):
+                print('[fetc layer]')
             self.exfeats.append(nn.Sequential(*final_list[x]))
+        print('     || ')
         print("<tail layer>")
         print('---------------------------------------------------')
         len(self.feats) , len(self.exfeats)
