@@ -7,6 +7,8 @@ from ..model.branch import Branch, Gate
 import torch.nn.functional as F
 from early_ex import visualization
 
+
+
 class ECELoss(nn.Module):
     def __init__(self, n_bins=15):
         """
