@@ -126,15 +126,15 @@ class DevourModel(Model):
             nn.Linear(features, self.cfg['num_class']))
 
     def hunt(self, module):
-        print("Hunting Module...")
+        print("----------------------------------------")
         for n, m in module.named_children():
             print(n, ' ', type(m).__name__)
-
+        print("----------------------------------------")
     def bite(self, module, start=0, end=0):
         result = []
         counter = 0
         assert end >= start
-        print("Biting Module: ",type(module).__name__)
+        print("Biting Module...")
         print("start: {}, end: {}".format(start, end))
         print("Check \t | \t Module name")
         print("----------------------------")
@@ -173,36 +173,58 @@ class DevourModel(Model):
         ### bite model based on types
         if 'efficientnet' in name:
             self.hunt(backbone)
+            print("hunting backbone.features")
             self.head_list = self.bite(backbone.features, start=0, end=0)
             end = len(backbone.features)
+            print("hunting backbone.features")
             self.body_list = self.bite(backbone.features, start=1, end=end)
+            print("hunting backbone")
             self.tail_list = self.bite(backbone         , start=1, end=2)
 
         if 'mobilenet' in name:
             self.hunt(backbone)
+            print("hunting backbone.features")
             self.head_list = self.bite(backbone.features, start=0, end=0)
             end = len(backbone.features)
+            print("hunting backbone.features")
             self.body_list = self.bite(backbone.features, start=1, end=end)
+            print("hunting backbone.classifier")
             self.tail_list = self.bite(backbone.classifier, start=0, end=2)
 
         if 'resnet' in name:
             self.hunt(backbone)
+            print("hunting backbone")
             self.head_list = self.bite(backbone, start=0, end=3)
+            print("hunting backbone")
             self.body_list = self.bite(backbone, start=4, end=7)
+            print("hunting backbone")
             self.tail_list = self.bite(backbone, start=8, end=9)
 
         if 'inception' in name:
             self.hunt(backbone)
+            print("hunting backbone")
             self.head_list = self.bite(backbone, start=0, end=6)
+            print("hunting backbone")
             self.body_list = self.bite(backbone, start=7, end=14)
+            print("hunting backbone")
             self.tail_list = self.bite(backbone, start=16, end=21)
             
         if 'vgg' in name:
             end = len(backbone.features)
+            print("hunting backbone.features")
             self.head_list = self.bite(backbone.features, start=0, end=2)
+            print("hunting backbone.features")
             self.body_list = self.bite(backbone.features, start=3, end=end)
+            print("hunting backbone.classifier")
             self.tail_list = self.bite(backbone.classifier, start=0, end=6)
-            
+        
+        if 'regnet' in name:
+            print("hunting backbone")
+            self.head_list = self.bite(backbone, start=0, end=0)
+            print("hunting backbone.trunk_output")
+            self.body_list = self.bite(backbone.trunk_output,start=0, end=3)            
+            print("hunting backbone")
+            self.tail_list = self.bite(backbone, start=2, end=3)
             
         self.construct()
         del self.head_list
