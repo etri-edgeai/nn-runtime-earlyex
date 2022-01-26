@@ -31,7 +31,7 @@ class Branch(nn.Module):
     def branch_init(self, input):
         self.branch_uninitialized = False
         batch, channel, width, height = input.shape
-        print(input.shape)
+        # print(input.shape)
         self.shape = self.channel * self.size * self.size
         self.representation = self.cfg['contra']['representation']
         self.projection = self.cfg['contra']['projection']
@@ -88,18 +88,24 @@ class DevourModel(Model):
         self.count = []
         
     def forward_init(self):
+        
         x = torch.randn(1, 3, 1000, 1000)
-        print("input shape:",x.shape)
+        print("0. Generating input shape:",x.shape)
         x = self.head_layer(x)
-        print("head_layer", x.shape)
+        print("1. After head: ", x.shape)
         for i in range(self.n):
             x = self.feats[i].forward(x)
+            k = i+2
+            print("{}. After Feat: {}".format(k, x.shape))
             self.exits[i].forward(x)
         
         for i in range(len(self.exfeats)):
+            k +=1
             x = self.exfeats[i].forward(x)
+            print("{}. After Fetc: {}".format(k, x.shape))
         
         b, c, w, h = x.shape
+        print("X. Input to Tail layer: ", x.shape)
         features = 100
         dropout = 0.5
         for m in self.tail_list:
@@ -244,3 +250,4 @@ class DevourModel(Model):
         ##create tail layer
         print("creating tail layer")
         self.tail_layer = self.forward_init()
+        print("Model Set Complete!")
