@@ -1,6 +1,6 @@
 from torchvision.models import efficientnet, \
     mobilenet_v2, vgg, inception_v3, resnet, \
-        wide_resnet50_2, wide_resnet101_2
+        wide_resnet50_2, wide_resnet101_2, regnet
 
 def get_backbone(cfg):
     m = cfg['backbone']
@@ -52,7 +52,7 @@ def get_backbone(cfg):
     elif m == 'vgg16_bn':
         backbone = vgg.vgg16_bn(pretrained=True)
 
-    elif m == 'vgg_19_bn':
+    elif m == 'vgg19_bn':
         backbone = vgg.vgg19_bn(pretrained=True)
 
     elif m == 'wide_resnet50_2':
@@ -61,10 +61,40 @@ def get_backbone(cfg):
     elif m == 'wide_resnet101_2':
         backbone = wide_resnet101_2(pretrained=True)
 
-    return backbone
+    elif m == 'regnet_y_400mf':
+        backbone = regnet.regnet_y_400mf(pretrained=True)
 
-    # elif model_type == 'inception':
-    #     backbone = inception_v3(pretrained=True)
-        
-    # elif model_type == 'vgg':
-    #     backbone = vgg16_bn(pretrained=True)
+    elif m == 'regnet_y_800mf':
+        backbone = regnet.regnet_y_800mf(pretrained=True)
+    
+    elif m == 'regnet_y_1_6gf':
+        backbone = regnet.regnet_y_1_6gf(pretrained=True)
+
+    elif m == 'regnet_y_3_2gf':
+        backbone = regnet.regnet_y_3_2gf(pretrained=True)
+
+    elif m == 'regnet_y_8gf':
+        backbone = regnet.regnet_y_8gf(pretrained=True)
+
+    elif m == 'regnet_y_16gf':
+        backbone = regnet.regnet_y_16gf(pretrained=True)
+
+    elif m == 'regnet_y_32gf':
+        backbone = regnet.regnet_y_32gf(pretrained=True)
+
+    elif m == 'regnet_x_400mf':
+        backbone = regnet.regnet_x_400mf(pretrained=True)
+
+    elif m == 'regnet_x_800mf':
+        backbone = regnet.regnet_x_800mf(pretrained=True)
+
+    elif m == 'regnet_x_1_6gf':
+        backbone = regnet.regnet_x_1_6gf(pretrained=True)
+
+    elif m == 'regnet_x_3_2gf':
+        backbone = regnet.regnet_x_3_2gf(pretrained=True)
+
+    elif m == 'regnet_x_8gf':
+        backbone = regnet.regnet_x_8gf(pretrained=True)
+
+    return backbone
