@@ -7,10 +7,10 @@ from torchvision import datasets
 from tqdm import tqdm
 import numpy as np
 from datetime import datetime
-from metric_ex.utils import config, get_dataloader, get_dataset
-from metric_ex.model.backbone import get_backbone
-from metric_ex.trainer.backbone import BackboneTrainer
-from metric_ex.model import Model
+from early_ex.utils import config, get_dataloader, get_dataset
+from early_ex.model.backbone import get_backbone
+from early_ex.trainer.backbone import BackboneTrainer
+from early_ex.model import Model
 import argparse 
 
 def main():
