@@ -5,7 +5,7 @@ import numpy as np
 import torch.nn as nn
 from ..model.branch import Branch, Gate
 import torch.nn.functional as F
-from metric_ex import visualization
+from early_ex import visualization
 
 class ECELoss(nn.Module):
     def __init__(self, n_bins=15):
