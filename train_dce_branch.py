@@ -18,7 +18,7 @@ def main():
     model = DevourModel(cfg, N=cfg['num_exits'])
     model.devour(backbone, cfg['backbone'])
 
-    trainer = CEBranchTrainer(model, cfg)
+    trainer = DCEBranchTrainer(model, cfg)
 
 if __name__ == "__main__":
     main()
