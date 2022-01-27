@@ -64,18 +64,18 @@ class Branch(nn.Module):
             nn.Flatten(),
             nn.Linear(self.shape, self.representation),
             nn.ReLU(),
-            ).to(self.cfg['device'])
+            )
 
 
         middle = self.transform(input)
 
         self.project = nn.Sequential(
             nn.Linear(middle.shape[1], self.projection),
-        ).to(self.cfg['device'])
+        )
 
         self.classifier = nn.Sequential(
             nn.Linear(middle.shape[1], self.num_class)
-        ).to(self.cfg['device'])
+        )
         
         output = self.classifier(middle)
 
@@ -85,16 +85,15 @@ class Branch(nn.Module):
             self.branch_uninitialized = False
 
         # self.repr = x.view(x.shape[0], -1)
-        self.repr = self.transform(x)        
+        self.repr = self.transform(x)      
+
         if self.cross:
             self.logits = self.classifier(self.repr)
             if self.temp:
                 self.pred = F.softmax(self.logits/self.temperature, dim=1)
             else:
                 self.pred = F.softmax(self.logits, dim=1) 
-
             self.conf, _ = torch.max(self.pred, 1)
-
             if self.gate:
                 if self.conf.item() > self.threshold:
                     raise EarlyExitError(self.pred)

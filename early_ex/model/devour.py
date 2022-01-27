@@ -1,73 +1,9 @@
 import torch.nn as nn
 import torch
 from early_ex.model import Model
-# from early_ex.model.branch import Branch
+from early_ex.model.branch import Branch
 import torch.nn.functional as F
 import copy
-    
-class Branch(nn.Module):
-    def __init__( 
-        self, cfg=None):
-
-        super(Branch, self).__init__()
-        self.branch_uninitialized = True
-        self.num_class = cfg['num_class']
-        self.cfg = cfg
-        self.channel = cfg['branch']['channel']
-        self.size =   cfg['branch']['size']
-        self.feature = cfg['branch']['feature'] 
-        self.temp = False
-        self.knn_gate = False
-        self.exit = False
-        self.gate = False
-        self.cross = True
-        self.projectt = True
-        self.threshold = 0.9
-        self.temperature = nn.Parameter(
-            torch.Tensor([1.5]), 
-            requires_grad=True
-            )
-
-    def branch_init(self, input):
-        self.branch_uninitialized = False
-        batch, channel, width, height = input.shape
-        # print(input.shape)
-        self.shape = self.channel * self.size * self.size
-        self.representation = self.cfg['contra']['representation']
-        self.projection = self.cfg['contra']['projection']
-        self.hidden = self.cfg['contra']['hidden']
-
-        self.transform = nn.Sequential(
-            nn.Conv2d(in_channels=channel, 
-                        out_channels=self.channel, 
-                        kernel_size=1, 
-                        bias=False),
-            nn.ReLU(),
-            nn.AdaptiveAvgPool2d((self.size, self.size)),
-            nn.Flatten(),
-            nn.Linear(self.shape, self.representation),
-            nn.ReLU(),
-            )
-
-        self.project = nn.Sequential(
-            nn.Linear(self.representation, self.projection))
-
-        self.classifier = nn.Sequential(
-            nn.Linear(self.representation, self.num_class))
-        
-    def forward(self, x):
-        if self.branch_uninitialized:
-            self.branch_init(x)
-
-        self.repr = self.transform(x)
-        if self.cross:
-            self.logits = self.classifier(self.repr)
-            if self.temp:
-                self.pred = F.softmax(self.logits/self.temperature, dim=1)
-            else:
-                self.pred = F.softmax(self.logits, dim=1) 
-            self.conf, _ = torch.max(self.pred, 1)
-        return x
 
 class DevourModel(Model):
     def __init__(self, cfg, N=3):
@@ -77,8 +13,8 @@ class DevourModel(Model):
         self.img_size = cfg['img_size']
         self.head_layer = nn.Sequential()
         self.feats = nn.ModuleList([])
-        self.exfeats = nn.ModuleList([])
-        self.exits = nn.ModuleList([])
+        self.fetc = nn.ModuleList([])
+        self.exactly = nn.ModuleList([])
         self.tail_layer = nn.Sequential()
         self.gate  = []
         self.n = N
@@ -88,20 +24,19 @@ class DevourModel(Model):
         self.count = []
         
     def forward_init(self):
-        
-        x = torch.randn(1, 3, 1000, 1000)
+        x = torch.randn(3, 3, 1000, 1000)
         print("0. Generating input shape:",x.shape)
         x = self.head_layer(x)
-        print("1. After head: ", x.shape)
+        print("1. After head: {}".format(x.shape))
         for i in range(self.n):
             x = self.feats[i].forward(x)
             k = i+2
             print("{}. After Feat: {}".format(k, x.shape))
-            self.exits[i].forward(x)
+            self.exactly[i].forward(x)
         
-        for i in range(len(self.exfeats)):
+        for i in range(len(self.fetc)):
             k +=1
-            x = self.exfeats[i].forward(x)
+            x = self.fetc[i].forward(x)
             print("{}. After Fetc: {}".format(k, x.shape))
         
         b, c, w, h = x.shape
@@ -126,16 +61,15 @@ class DevourModel(Model):
             nn.Linear(features, self.cfg['num_class']))
 
     def hunt(self, module):
-        print("----------------------------------------")
         for n, m in module.named_children():
             print(n, ' ', type(m).__name__)
-        print("----------------------------------------")
+
     def bite(self, module, start=0, end=0):
         result = []
         counter = 0
         assert end >= start
         print("start: {}, end: {}".format(start, end))
-        print("----------------------------")
+        # print("----------------------------")
         for n, m in module.named_children():
             name = type(m).__name__
             if counter >= start and counter <= end:
@@ -153,12 +87,12 @@ class DevourModel(Model):
         x = self.head_layer(x)
         for i in range(self.n):
             x = self.feats[i].forward(x)
-            self.exits[i].forward(x)
-            if self.exits[i].conf[0] > self.exits[i].threshold and self.gate[i]:
-                    return self.exits[i].pred
+            self.exactly[i].forward(x)
+            if self.exactly[i].conf[0] > self.exactly[i].threshold and self.gate[i]:
+                return self.exactly[i].pred
         
-        for i in range(len(self.exfeats)):
-            x = self.exfeats[i].forward(x)
+        for i in range(len(self.fetc)):
+            x = self.fetc[i].forward(x)
         x = self.tail_layer(x)      
         return x  
 
@@ -167,81 +101,58 @@ class DevourModel(Model):
         self.body_list = []
         self.tail_list = []
         
-        print("Devouring Module...")
         ### bite model based on types
+        print("----------------------------------------")
+        print("Scouting Module...")
+
         if 'efficientnet' in name:
-            self.hunt(backbone)
-            print('<head_layer>')
-            print("hunting backbone.features")
-            self.head_list = self.bite(backbone.features, start=0, end=0)
-            end = len(backbone.features)
-            print('<body_layer>')
-            print("hunting backbone.features")
-            self.body_list = self.bite(backbone.features, start=1, end=end)
-            print('<tail_layer>')
-            print("hunting backbone")
-            self.tail_list = self.bite(backbone         , start=1, end=2)
+            e = len(backbone.features)
+            head, head_start, head_end = (backbone.features,    0, 0)
+            body, body_start, body_end = (backbone.features,    1, e) 
+            tail, tail_start, tail_end = (backbone,             1, 2)
 
         if 'mobilenet' in name:
-            self.hunt(backbone)
-            print('<head_layer>')
-            print("hunting backbone.features")
-            self.head_list = self.bite(backbone.features, start=0, end=0)
-            end = len(backbone.features)
-            print('<body_layer>')
-            print("hunting backbone.features")
-            self.body_list = self.bite(backbone.features, start=1, end=end)
-            print('<tail_layer>')
-            print("hunting backbone.classifier")
-            self.tail_list = self.bite(backbone.classifier, start=0, end=2)
+            e = len(backbone.features)
+            head, head_start, head_end = (backbone.features,    0, 0)
+            body, body_start, body_end = (backbone.features,    1, e) 
+            tail, tail_start, tail_end = (backbone.classifier,  0, 2)
 
         if 'resnet' in name:
-            self.hunt(backbone)
-            print('<head_layer>')
-            print("hunting backbone")
-            self.head_list = self.bite(backbone, start=0, end=3)
-            print('<body_layer>')
-            print("hunting backbone")
-            self.body_list = self.bite(backbone, start=4, end=7)
-            print('<tail_layer>')
-            print("hunting backbone")
-            self.tail_list = self.bite(backbone, start=8, end=9)
+            head, head_start, head_end = (backbone, 0, 3)
+            body, body_start, body_end = (backbone, 4, 7) 
+            tail, tail_start, tail_end = (backbone, 8, 9)
 
         if 'inception' in name:
-            self.hunt(backbone)
-            print('<head_layer>')
-            print("hunting backbone")
-            self.head_list = self.bite(backbone, start=0, end=6)
-            print('<body_layer>')
-            print("hunting backbone")
-            self.body_list = self.bite(backbone, start=7, end=14)
-            print('<tail_layer>')
-            print("hunting backbone")
-            self.tail_list = self.bite(backbone, start=16, end=21)
-            
+            head, head_start, head_end = (backbone,  0,  6)
+            body, body_start, body_end = (backbone,  7, 14) 
+            tail, tail_start, tail_end = (backbone, 16, 21)
+        
         if 'vgg' in name:
-            end = len(backbone.features)
-            print('<head_layer>')
-            print("hunting backbone.features")
-            self.head_list = self.bite(backbone.features, start=0, end=2)
-            print('<body_layer>')
-            print("hunting backbone.features")
-            self.body_list = self.bite(backbone.features, start=3, end=end)
-            print('<tail_layer>')
-            print("hunting backbone.classifier")
-            self.tail_list = self.bite(backbone.classifier, start=0, end=6)
+            e = len(backbone.features)
+            head, head_start, head_end = (backbone.features,    0, 6)
+            body, body_start, body_end = (backbone.features,    7, e) 
+            tail, tail_start, tail_end = (backbone.classifier,  0, 6)
         
         if 'regnet' in name:
-            print('<head_layer>')
-            print("hunting backbone")
-            self.head_list = self.bite(backbone, start=0, end=0)
-            print('<body_layer>')
-            print("hunting backbone.trunk_output")
-            self.body_list = self.bite(backbone.trunk_output,start=0, end=3) 
-            print('<tail_layer>')           
-            print("hunting backbone")
-            self.tail_list = self.bite(backbone, start=2, end=3)
-            
+            e = len(backbone)
+            head, head_start, head_end = (backbone,  0, 0)
+            body, body_start, body_end = (backbone.trunk_output,  0, 3) 
+            tail, tail_start, tail_end = (backbone,  2, 3)
+
+        self.hunt(backbone)
+        print("----------------------------------------")
+
+        print('<Head_layer>')
+        self.head_list = self.bite(head, start=head_start, end=head_end)
+        print("----------------------------------------")
+
+        print('<Body_layer>')
+        self.body_list = self.bite(body, start=body_start, end=body_end)
+        print("----------------------------------------")
+
+        print('<Tail Layer')
+        self.tail_list = self.bite(tail, start=tail_start, end=tail_end)
+
         self.construct()
         del self.head_list
         del self.body_list
@@ -252,6 +163,8 @@ class DevourModel(Model):
         self.head_layer = nn.Sequential(*self.head_list)
         
         ## Create body layers
+        print('---------------------------------------------------')
+
         print("split feats={}, using N={} early exits"
               .format(len(self.body_list), self.n))
         N = self.n
@@ -261,25 +174,22 @@ class DevourModel(Model):
         div = int(div)
         print("divide size:",div)
         split_list = lambda test_list, x: [test_list[i:i+x] for i in range(0, len(test_list), x)]
-
         final_list = split_list(self.body_list, div)
         print("Constructing head-body-tail layers with early exits")
-        print('---------------------------------------------------')
         print("<head layer>")
         print('     || ')
         ## feats layers are body layers with early exits
         
         for x in range(self.n):
-            l = len(final_list[x])
-            for y in range(l):
-                if y < l-1:
+            for y in range(len(final_list[x])):
+                if y < len(final_list[x])-1:
                     print('[feat layer]')
                 else:
                     print('[feat layer] -> [exit #{}]'
                         .format(x))
             print('     || ')
             self.feats.append(nn.Sequential(*final_list[x]))
-            self.exits.append(Branch(cfg=self.cfg))
+            self.exactly.append(Branch(cfg=self.cfg))
             self.gate.append(False)
             self.temp = False
 
@@ -287,11 +197,11 @@ class DevourModel(Model):
         for x in range(self.n, len(final_list)):
             for y in range(len(final_list[x])):
                 print('[fetc layer]')
-            self.exfeats.append(nn.Sequential(*final_list[x]))
+            self.fetc.append(nn.Sequential(*final_list[x]))
         print('     || ')
         print("<tail layer>")
         print('---------------------------------------------------')
-        len(self.feats) , len(self.exfeats)
+        len(self.feats) , len(self.fetc)
         
         ##create tail layer
         print("creating tail layer")
