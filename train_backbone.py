@@ -19,7 +19,7 @@ def main():
     parser.add_argument(
         '--config', 
         type = str, 
-        default = "./configs/cifar10/resnet18_ce.yml"
+        default = "./configs/base.yml"
         )
     args = parser.parse_args()
     cfg = config(args.config)
