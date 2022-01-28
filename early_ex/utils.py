@@ -21,6 +21,8 @@ def config(str):
     for n in cfg['combine_path']:
         cfg[n] = ''.join(cfg['combine_path'][n])
 
+    cfg['model_name'] = "{}_exit_{}".format(cfg['num_exits'], cfg['model_name'])
+    cfg['model_path'] = cfg['model_dir'] + cfg['model_name']
     return cfg
 
 def get_dataset(cfg):
