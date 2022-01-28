@@ -17,7 +17,7 @@ import sys
 def main():
     print("Branch Trainer v0.5")
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default = "./configs/train.yml")
+    parser.add_argument('--config', type=str, default = "./configs/base.yml")
     args = parser.parse_args()
     cfg = config(args.config)
     backbone = get_backbone(cfg)
@@ -48,8 +48,6 @@ def main():
         num_workers=cfg['workers'],
         pin_memory=True) 
 
-    trainer.branch_init()
-
     try:
         print("loading previous model...")
         trainer.model.backbone.load_state_dict(
@@ -59,6 +57,8 @@ def main():
         print(e)
     except FileNotFoundError as e:
         print(e)
+
+    trainer.branch_init()
 
     try:
         for epoch in range(50):
