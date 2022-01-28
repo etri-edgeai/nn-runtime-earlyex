@@ -115,3 +115,10 @@ combine_path:
     - _
     - model_best.pth
 
+  model_name:
+    - *mode
+    - *backbone
+    - _
+    - *dataset
+    - _
+    - model_best.pth
