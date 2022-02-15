@@ -5,6 +5,8 @@ from early_ex.model.branch import Branch
 import torch.nn.functional as F
 import copy
 
+
+
 class DevourModel(Model):
     def __init__(self, cfg, N=3):
         super(Model, self).__init__()
@@ -22,7 +24,8 @@ class DevourModel(Model):
 
     def start_count(self):
         self.count = []
-        
+
+
     def forward_init(self):
         x = torch.randn(3, 3, 1000, 1000)
         print("0. Generating input shape:",x.shape)
@@ -41,7 +44,7 @@ class DevourModel(Model):
         
         b, c, w, h = x.shape
         print("X. Input to Tail layer: ", x.shape)
-        features = 100
+        features = self.cfg['branch']['feature']
         dropout = 0.5
         for m in self.tail_list:
             name = str(type(m).__name__)
