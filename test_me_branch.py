@@ -82,7 +82,7 @@ for epoch in range(epochs):
     embs = []
     self.model.nn = []
     for n in range(ex_num):
-        self.model.nn.append(NNN())
+        self.model.nn.append(NN())
         cnts.append(torch.zeros(num_class).to(self.device))
         embs.append(torch.zeros(num_class, self.cfg['contra']['projection']).to(self.device))
 
