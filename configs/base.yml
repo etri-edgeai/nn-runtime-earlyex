@@ -44,6 +44,7 @@ branch:
   feature: 32
   size: 8
   threshold: 0.16
+  feature: 100
 
 contra:
   representation: 512
