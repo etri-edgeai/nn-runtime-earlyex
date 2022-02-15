@@ -155,3 +155,37 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+
+
+
+@torch.jit.script
+def distance_matrix(x, y): #pairwise distance of vectors
+    # y = x if type(y) == type(None) else y
+    p = 2
+    n, d = x.size(0), x.size(1)
+    m = y.size(0)
+    x = x.unsqueeze(1).expand(n, m, d)
+    y = y.unsqueeze(0).expand(n, m, d)
+    dist = torch.pow(x - y, p).sum(2)
+    return dist
+
+class NN():
+    def __init__(self, X = None, Y = None, p = 2):
+        self.p = p
+        self.train(X, Y)
+
+    def train(self, X, Y):
+        self.train_pts = X
+        self.train_label = Y
+
+    def __call__(self, x):
+        return self.predict(x)
+
+    def predict(self, x):
+        if type(self.train_pts) == type(None) or type(self.train_label) == type(None):
+            name = self.__class__.__name__
+            raise RuntimeError(f"{name} wasn't trained. Need to execute {name}.train() first")
+        
+        dist = distance_matrix(x, self.train_pts) ** (1/self.p)
+        labels = torch.argmin(dist, dim=1)
+        return self.train_label[labels]
