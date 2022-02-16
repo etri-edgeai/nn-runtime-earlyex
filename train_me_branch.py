@@ -1,83 +1,25 @@
-# import yaml
-# import torch
-# import torch.nn as nn
-# import torch.nn.functional as F
-# from torchvision import transforms
-# from torchvision import datasets
-# from tqdm import tqdm
-# import numpy as np
-# from datetime import datetime
-# from metric_ex.utils import config, get_dataloader, get_dataset
-# from metric_ex.model.backbone import get_backbone
-# from metric_ex.trainer.me_branch import MEBranchTrainer
-# from metric_ex.model import Model
-# import argparse 
-# import sys
+import yaml
+import argparse
+from early_ex.utils import *
+from early_ex.model.devour import DevourModel
+from early_ex.model.backbone import get_backbone
+from early_ex.trainer.dme_branch import DMEBranchTrainer
+# from early_ex.trainer.ce_branch import DCEBranchTrainer
+from tqdm import tqdm
 
-# def main():
-#     print("Branch Trainer v0.5")
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument('--config', type=str, default = "./configs/train.yml")
-#     args = parser.parse_args()
-#     cfg = config(args.config)
-#     backbone = get_backbone(cfg)
-#     try:
-#         print("loading pre-trained backbone",cfg['backbone_path'])
-#         backbone.load_state_dict(
-#             torch.load(cfg['backbone_path']),strict=False)
-#     except RuntimeError as e:
-#         print(e)
-#     except FileNotFoundError as e:
-#         print(e)
-#         print("Backbone file not found! Maybe try training it first?")
-#     model = Model(backbone, cfg)
-#     trainer = MEBranchTrainer(model, cfg)
-#     trainer.trainset, trainer.testset = get_dataset(cfg)
+print("Devour & Branch Trainer v0.9")
 
-#     trainer.train_loader = torch.utils.data.DataLoader(
-#         trainer.trainset, 
-#         batch_size=cfg['batch_size'], 
-#         shuffle=True,  
-#         num_workers=cfg['workers'],
-#         pin_memory=True) 
+cfg = config("./configs/base.yml")
+backbone = get_backbone(cfg)
 
-#     trainer.val_loader = torch.utils.data.DataLoader(
-#         trainer.testset, 
-#         batch_size=cfg['batch_size'], 
-#         shuffle=False,  
-#         num_workers=cfg['workers'],
-#         pin_memory=True) 
+model = DevourModel(cfg, N=cfg['num_exits'])
+model.devour(backbone, cfg['backbone'])
+self = DMEBranchTrainer(model, cfg)
 
-#     trainer.branch_init()
+model = model.to(cfg['device'])
+    
+for epoch in range(30): 
+    self.metric_train()
+    self.metric_valid(epoch)
+# self.metric_test()
 
-#     try:
-#         print("loading previous model...")
-#         trainer.model.backbone.load_state_dict(
-#             torch.load(trainer.cfg['model_path']), strict=False
-#             )
-#     except RuntimeError as e:
-#         print(e)
-#     except FileNotFoundError as e:
-#         print(e)
-
-#     try:
-#         for epoch in range(50):
-#             trainer.branch_train(epoch)
-#             trainer.scheduler.step()
-#             trainer.branch_valid(epoch)
-#     except KeyboardInterrupt:
-#         print("terminating backbone training")
-
-#     try:
-#         print("calibrating branch using temperature scale")
-#         trainer.branch_calibrate()
-
-#     except KeyboardInterrupt:
-#         print("terminating backbone training")
-
-#     print("saving model to: ",cfg['model_path'])
-#     torch.save(trainer.model.backbone.state_dict(), cfg['model_path'])
-
-
-# if __name__ == "__main__":
-#     main()
