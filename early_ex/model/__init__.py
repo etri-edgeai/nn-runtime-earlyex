@@ -1,4 +1,4 @@
-from .branch import Branch, EarlyExitError
+from .branch import Branch
 import torch.nn as nn
 import torch
 class Model(nn.Module):
@@ -11,13 +11,7 @@ class Model(nn.Module):
         self.ex_num = 0
         self.temp = False
 
-    def start_count(self):
-        self.count = []
-
     def forward(self, x):
-        try:     
-            pred = self.backbone(x)
-        except EarlyExitError as b:
-            return b.pred
-        else:
-            return pred
+        pred = self.backbone(x)
+        return pred
+

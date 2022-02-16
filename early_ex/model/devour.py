@@ -5,12 +5,11 @@ from early_ex.model.branch import Branch
 import torch.nn.functional as F
 import copy
 
-
-
 class DevourModel(Model):
     def __init__(self, cfg, N=3):
         super(Model, self).__init__()
         self.cfg = cfg
+        self.device = cfg['device']
         self.num_class = cfg['num_class']
         self.img_size = cfg['img_size']
         self.head_layer = nn.Sequential()
@@ -24,10 +23,9 @@ class DevourModel(Model):
 
     def start_count(self):
         self.count = []
-
-
+        
     def forward_init(self):
-        x = torch.randn(3, 3, 1000, 1000)
+        x = torch.randn(3, 3, 128, 128)
         print("0. Generating input shape:",x.shape)
         x = self.head_layer(x)
         print("1. After head: {}".format(x.shape))
@@ -44,7 +42,7 @@ class DevourModel(Model):
         
         b, c, w, h = x.shape
         print("X. Input to Tail layer: ", x.shape)
-        features = self.cfg['branch']['feature']
+        features = 100
         dropout = 0.5
         for m in self.tail_list:
             name = str(type(m).__name__)
@@ -91,12 +89,12 @@ class DevourModel(Model):
         for i in range(self.n):
             x = self.feats[i].forward(x)
             self.exactly[i].forward(x)
-            if self.exactly[i].conf[0] > self.exactly[i].threshold and self.gate[i]:
+            if self.exactly[i].exit:
                 return self.exactly[i].pred
         
         for i in range(len(self.fetc)):
             x = self.fetc[i].forward(x)
-        x = self.tail_layer(x)      
+        x = self.tail_layer(x)
         return x  
 
     def devour(self, backbone, name='resnet'):
