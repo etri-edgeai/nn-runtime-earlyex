@@ -6,10 +6,11 @@ num_exits: 4
 
 lr: 0.0001
 device: cuda:0
+test_device: cpu
 num_class :  10
 batch_size : 128
 workers :    0
-img_size :   32
+img_size : 128
 epochs: 30
 
 #### Backbone Training Configuration ####
@@ -37,17 +38,13 @@ branch_training:
   lr: 0.0001
 
 branch:
-  hidden: 32
   channel: 32
-  feature: 32
-  size: 8
-  threshold: 0.16
-  feature: 100
+  size: 32 
 
 contra:
   representation: 512
-  hidden: 64
-  projection: 16
+  hidden: 256
+  projection: 128
 
   
 branch_training:
