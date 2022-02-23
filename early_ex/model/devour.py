@@ -20,9 +20,8 @@ class DevourModel(Model):
         self.gate  = []
         self.n = N
         self.name = "resnet"
+        self.exit_count = torch.zeros(self.n+1)
 
-    def start_count(self):
-        self.count = []
         
     def forward_init(self):
         x = torch.randn(3, 3, 128, 128)
@@ -89,12 +88,15 @@ class DevourModel(Model):
         for i in range(self.n):
             x = self.feats[i].forward(x)
             self.exactly[i].forward(x)
+
             if self.exactly[i].exit:
-                return self.exactly[i].pred
+                self.exit_count[i] += 1
+                return self.exactly[i].logits
         
         for i in range(len(self.fetc)):
             x = self.fetc[i].forward(x)
         x = self.tail_layer(x)
+        self.exit_count[-1] += 1
         return x  
 
     def devour(self, backbone, name='resnet'):
