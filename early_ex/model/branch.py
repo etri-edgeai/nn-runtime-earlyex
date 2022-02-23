@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 # from early_ex.utils import AverageMeter
 from early_ex.utils import *
-from pytorch_metric_learning.distances import LpDistance
+from pytorch_metric_learning import distances
 
 
 class Branch(nn.Module):
@@ -21,7 +21,7 @@ class Branch(nn.Module):
 
         self.chan_size = cfg['branch']['channel']
         self.img_size  = cfg['branch']['size']
-        self.feat_size = cfg['branch']['feature']
+        # self.feat_size = cfg['branch']['feature']
         self.flat_size = self.chan_size * self.img_size * self.img_size
 
         self.proj_size = cfg['contra']['projection']
@@ -37,7 +37,7 @@ class Branch(nn.Module):
         self.temperature = nn.Parameter(
             torch.Tensor([1.0]), requires_grad=True)
 
-        self.distance = LpDistance()
+        self.distance = distances.LpDistance()
 
         self.nn = NN()
 
@@ -87,13 +87,15 @@ class Branch(nn.Module):
             self.proj = F.normalize(middle)
             
             if self.near_path:
-                dist = self.distance(self.proj, self.nn.train_pts)
+                dist = self.nn.dist(self.proj)
                 # print("dist: ", dist)
-                self.logits = torch.div(- dist, self.temperature)
-                self.logits = F.softmax(self.logits)
+                logits = - dist
+                logits = torch.div(logits, self.temperature)
+                self.logits = F.softmax(logits, dim=1)
                 # print("logits: ",self.logits)
-                self.conf, self.pred  = torch.max(self.logits, dim=1)
+                self.conf, _  = torch.max(self.logits, dim=1)
                 # print(self.conf.item())
                 if self.conf.item() > self.threshold:
+                    print("{:.2f} > {:.2f}".format(self.conf.item(), self.threshold))
                     self.exit = True
         return x
