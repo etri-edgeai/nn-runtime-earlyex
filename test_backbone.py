@@ -21,7 +21,7 @@ def main():
     args = parser.parse_args()
     cfg = config(args.config)
     backbone = get_backbone(cfg)
-    model = Model(backbone, cfg).to(cfg['device'])
+    model = Model(backbone, cfg)
     trainer = BackboneTrainer(model, cfg)
     trainer.trainset, trainer.testset = get_dataset(cfg)
 
@@ -29,8 +29,8 @@ def main():
         trainer.testset,  
         batch_size= 1, 
         shuffle=False, 
-        num_workers=cfg['workers'],
-        pin_memory=True)
+        num_workers=1,
+        pin_memory=False)
 
     try:
         print("loading pre-trained backbone for testing...",cfg['backbone_path'])
@@ -47,6 +47,8 @@ def main():
     tbar = tqdm(trainer.test_loader)
     acc = 0 
     total = 0
+    trainer.device = cfg['test_device']
+    trainer.model.to(trainer.device)
     with torch.no_grad():
         for (i, data) in enumerate(tbar):
             input = data[0].to(trainer.device)
