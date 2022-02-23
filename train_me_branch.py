@@ -17,9 +17,20 @@ model.devour(backbone, cfg['backbone'])
 self = DMEBranchTrainer(model, cfg)
 
 model = model.to(cfg['device'])
-    
-for epoch in range(30): 
-    self.metric_train()
-    self.metric_valid(epoch)
-# self.metric_test()
+
+try:
+    for epoch in range(10): 
+        print("epoch: ",epoch)
+        self.metric_train()
+        self.metric_valid(epoch)
+    self.metric_visualize()
+    self.metric_test()
+except KeyboardInterrupt:
+    print("terminate train")
+
+
+
+
+
+# self.metric_cali()
 
