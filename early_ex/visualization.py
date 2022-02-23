@@ -1,10 +1,19 @@
 import numpy as np
 #import matplotlib as mpl
 #mpl.use('Agg')
+import torch
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.special import softmax
+import seaborn as sn
+from sklearn.metrics import roc_curve, roc_auc_score, confusion_matrix, auc, ConfusionMatrixDisplay
+from sklearn.linear_model import RidgeClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
 
+from yellowbrick.classifier import ROCAUC
+from yellowbrick.datasets import load_game
+import matplotlib.pyplot as plt
 
 class CELoss(object):
     def compute_bin_boundaries(self, probabilities = np.array([])):
@@ -197,7 +206,7 @@ class ReliabilityDiagram(MaxProbCELoss):
         #plot grid
         plt.grid(color='tab:grey', linestyle=(0, (1, 5)), linewidth=1,zorder=0)
         #plot bars and identity line
-        plt.bar(x, self.bin_acc, color = 'b', width=delta,align='edge',edgecolor = 'k',label='Outputs',zorder=5)
+        plt.bar(x, self.bin_acc, color = 'b', width=delta,align='edge', edgecolor = 'k',label='Outputs',zorder=5)
         plt.bar(x, error, bottom=np.minimum(self.bin_acc,mid), color = 'mistyrose', alpha=0.5, width=delta,align='edge',edgecolor = 'r',hatch='/',label='Gap',zorder=10)
         ident = [0.0, 1.0]
         plt.plot(ident,ident,linestyle='--',color='tab:grey',zorder=15)
@@ -210,3 +219,56 @@ class ReliabilityDiagram(MaxProbCELoss):
         plt.tight_layout()
 
         return plt
+
+
+def confused(output, labels, num_class, name):
+        pred = np.argmax(output, axis=1)
+        cfm = confusion_matrix(labels, pred)
+        cfmd = ConfusionMatrixDisplay(confusion_matrix=cfm)
+        cfmd.plot()
+        plt.savefig(name, bbox_inches='tight') 
+        plt.clf()
+
+
+
+
+def roc_curved(output, labels, num_class, name):
+    pred = np.argmax(output, axis=1)
+    conf = np.amax(output, axis=1)
+    p = []
+    opt_thres = np.zeros(num_class)
+    for n in range(num_class):
+        lw = 2
+        # conditions = [(labels[pred == n] == n), (labels[pred == n] != n)]
+        conditions = [(labels[pred == n] == n), (labels[pred == n] != n)]
+        choices = [1,0]
+        y = np.select(conditions, choices)
+        # print(y)
+
+        X = conf[pred == n]
+        # print(X)
+        fpr, tpr, thresholds = roc_curve(y, X)
+        roc_auc = auc(fpr, tpr)
+        # print(fpr, tpr, thresholds)
+        fpr_micro, tpr_micro, _ = roc_curve(y.ravel(), X.ravel())
+        roc_auc_micro = auc(fpr_micro, tpr_micro)
+
+        plt.plot(
+            fpr,
+            tpr,
+            color="darkorange",
+            lw=lw,
+            label="ROC curve (area = %0.2f)" % roc_auc,
+        )
+        plt.plot([0, 1], [0, 1], color="navy", lw=lw, linestyle="--")
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.title("RoC for class {}".format(n))
+        plt.legend(loc="lower right")
+        namef = name +'_'+ str(n) + '.png' 
+        plt.savefig(namef, bbox_inches='tight')
+        opt_thres[n] = thresholds[np.argmax(tpr - fpr)]
+        plt.clf()
+    return np.amax(opt_thres)

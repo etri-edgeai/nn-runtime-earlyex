@@ -169,16 +169,20 @@ def distance_matrix(x, y): #pairwise distance of vectors
     dist = torch.pow(x - y, p).sum(2)
     return dist
 
-class NN():
+class NN(nn.Module):
+
     def __init__(self, X = None, Y = None, p = 2):
+        super(NN, self).__init__()
         self.p = p
-        self.train(X, Y)
 
-    def train(self, X, Y):
-        self.train_pts = X
-        self.train_label = Y
+    def set(self, X, Y):
+        self.train_pts = torch.autograd.Variable(X, requires_grad=False)
+        self.train_label = torch.autograd.Variable(Y, requires_grad=False)
 
-    def __call__(self, x):
+    def dist(self, x):
+        return distance_matrix(x, self.train_pts)
+
+    def forward(self, x):
         return self.predict(x)
 
     def predict(self, x):
