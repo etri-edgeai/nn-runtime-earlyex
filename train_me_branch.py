@@ -19,11 +19,11 @@ self = DMEBranchTrainer(model, cfg)
 model = model.to(cfg['device'])
 
 try:
-    for epoch in range(10): 
+    for epoch in range(4): 
         print("epoch: ",epoch)
         self.metric_train()
-        self.metric_valid(epoch)
-    self.metric_visualize()
+        # self.metric_valid(epoch)
+        self.metric_visualize()
     self.metric_test()
 except KeyboardInterrupt:
     print("terminate train")
