@@ -11,8 +11,6 @@ from sklearn.linear_model import RidgeClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
 
-from yellowbrick.classifier import ROCAUC
-from yellowbrick.datasets import load_game
 import matplotlib.pyplot as plt
 
 class CELoss(object):
@@ -246,7 +244,7 @@ def roc_curved(output, labels, num_class, name):
         # print(y)
 
         X = conf[pred == n]
-        # print(X)
+
         fpr, tpr, thresholds = roc_curve(y, X)
         roc_auc = auc(fpr, tpr)
         # print(fpr, tpr, thresholds)
@@ -269,6 +267,8 @@ def roc_curved(output, labels, num_class, name):
         plt.legend(loc="lower right")
         namef = name +'_'+ str(n) + '.png' 
         plt.savefig(namef, bbox_inches='tight')
-        opt_thres[n] = thresholds[np.argmax(tpr - fpr)]
+        gmeans =np.sqrt(tpr * (1-fpr))
+        opt_thres[n] = thresholds[np.argmax(gmeans)]
+        # opt_thres[n] = thresholds[np.argmax(tpr - fpr)]
         plt.clf()
     return np.amax(opt_thres)

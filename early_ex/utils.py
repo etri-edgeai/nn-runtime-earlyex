@@ -180,7 +180,7 @@ class NN(nn.Module):
         self.train_label = torch.autograd.Variable(Y, requires_grad=False)
 
     def dist(self, x):
-        return distance_matrix(x, self.train_pts)
+        return distance_matrix(x, self.train_pts) ** (1/2)
 
     def forward(self, x):
         return self.predict(x)
