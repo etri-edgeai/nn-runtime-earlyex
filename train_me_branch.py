@@ -23,7 +23,7 @@ try:
         print("epoch: ",epoch)
         self.metric_train()
         # self.metric_valid(epoch)
-    self.metric_visualize()
+        self.metric_visualize()
     self.metric_test()
 except KeyboardInterrupt:
     print("terminate train")
