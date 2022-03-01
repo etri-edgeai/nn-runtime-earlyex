@@ -249,15 +249,16 @@ class DMEBranchTrainer(Trainer):
 
 
                     ## Distance ver 1.5
-                    proj = m.proj.to(self.device)
-                    mean = m.mean.to(self.device)
-                    temp = m.temperature.to(self.device)
+                    # proj = m.proj.to(self.device)
+                    # mean = m.mean.to(self.device)
+                    # temp = m.temperature.to(self.device)
 
-                    nn,mm,dd = proj.size(0), mean.size(0), proj.size(1)
-                    proj = proj.unsqueeze(1).expand(nn, mm, dd)
-                    mean = mean.unsqueeze(0).expand(nn, mm, dd)
-                    logits = torch.pow(proj - mean, 2).sum(2) ** (1/2)
-                    logits = - logits
+                    # nn,mm,dd = proj.size(0), mean.size(0), proj.size(1)
+                    # proj = proj.unsqueeze(1).expand(nn, mm, dd)
+                    # mean = mean.unsqueeze(0).expand(nn, mm, dd)
+                    # logits = torch.pow(proj - mean, 2).sum(2) ** (1/2)
+                    dist = m.nn.dist(m.proj)
+                    logits = - dist
                     log = F.softmax(logits, dim=1)
                     conf, pred = torch.max(log, dim=1)
 
@@ -356,12 +357,13 @@ class DMEBranchTrainer(Trainer):
             m.cros_path = False
             m.proj_path = True
             m.near_path = True
+            m.temperature.requires_grad = False
             m.nn.train_pts = m.nn.train_pts.cpu()
         
         self.model.exit_count = torch.zeros(self.model.n+1, dtype=torch.int)
         self.model.exactly[-1].threshold = 0
-
-        # self.model.exactly[0].threshold = 0       
+        self.model.exactly[0].threshold = 0.99
+        self.model.exactly[1].threshold = 0.9
         with torch.no_grad():
             for (i, data) in enumerate(test_tbar):
                 input = data[0].to(self.device)
