@@ -149,7 +149,7 @@ class ACELoss(TACELoss):
         return super().loss(output, labels, 0.0 , n_bins, logits)
 
 class ConfidenceHistogram(MaxProbCELoss):
-    def plot(self, output, labels, n_bins = 10, logits = True, title = None):
+    def plot(self, output, labels, n_bins = 20, logits = True, title = None):
         super().loss(output, labels, n_bins, logits)
         #scale each datapoint
         n = len(labels)
