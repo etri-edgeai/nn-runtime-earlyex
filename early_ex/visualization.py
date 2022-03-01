@@ -272,3 +272,34 @@ def roc_curved(output, labels, num_class, name):
         # opt_thres[n] = thresholds[np.argmax(tpr - fpr)]
         plt.clf()
     return np.amax(opt_thres)
+
+def roc_curved2(output, labels, num_class, name):
+    pred = np.argmax(output, axis=1)
+    conf = np.amax(output, axis=1)
+    p = []
+    acc = np.equal(pred, labels)
+    y = acc
+    X = conf
+
+    fpr, tpr, thresholds = roc_curve(y, X)
+    roc_auc = auc(fpr, tpr)
+    plt.plot(
+        fpr, 
+        tpr, 
+        color="darkorange", 
+        lw=2,
+        label="ROC curve (area = %0.2f)" % roc_auc
+        )
+    plt.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("{} Curve".format(name))
+    plt.legend(loc="lower right")
+    namef = name +'.png' 
+    plt.savefig(namef, bbox_inches='tight')
+    gmeans =np.sqrt(tpr * (1-fpr))
+    opt_thres = thresholds[np.argmax(gmeans)]
+    plt.clf()
+    return opt_thres
