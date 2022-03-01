@@ -91,6 +91,7 @@ class DevourModel(Model):
 
             if self.exactly[i].exit:
                 self.exit_count[i] += 1
+                self.exactly[i].exit = False
                 return self.exactly[i].logits
         
         for i in range(len(self.fetc)):
