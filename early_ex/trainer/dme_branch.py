@@ -340,6 +340,7 @@ class DMEBranchTrainer(Trainer):
                 
                 name = self.cfg['csv_dir'] + 'RoC_{}'.format(n)
                 m.threshold = visualization.roc_curved2(soft_scaled_np, labels_np, self.num_class, name).item() + 0.05
+                m.threshold += 0.1
                 print("Threshold #{} has been set to {:.4f}.".format(n, m.threshold))
 
 
@@ -362,8 +363,8 @@ class DMEBranchTrainer(Trainer):
         
         self.model.exit_count = torch.zeros(self.model.n+1, dtype=torch.int)
         self.model.exactly[-1].threshold = 0
-        self.model.exactly[0].threshold = 0.99
-        self.model.exactly[1].threshold = 0.9
+        self.model.exactly[0].threshold = 0.70
+        self.model.exactly[1].threshold = 0.8
         with torch.no_grad():
             for (i, data) in enumerate(test_tbar):
                 input = data[0].to(self.device)
