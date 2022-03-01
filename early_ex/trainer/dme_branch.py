@@ -339,7 +339,7 @@ class DMEBranchTrainer(Trainer):
                 conf_matrix = visualization.confused(soft_scaled_np, labels_np, self.num_class, name)
                 
                 name = self.cfg['csv_dir'] + 'RoC_{}'.format(n)
-                m.threshold = visualization.roc_curved(soft_scaled_np, labels_np, self.num_class, name).item() + 0.05
+                m.threshold = visualization.roc_curved2(soft_scaled_np, labels_np, self.num_class, name).item() + 0.05
                 print("Threshold #{} has been set to {:.4f}.".format(n, m.threshold))
 
 
