@@ -88,7 +88,6 @@ class Branch(nn.Module):
             
             if self.near_path:
                 dist = self.nn.dist(self.proj)
-                # print("dist: ", dist)
                 logits = - dist
                 logits = torch.div(logits, self.temperature)
                 self.logits = F.softmax(logits, dim=1)
@@ -96,6 +95,6 @@ class Branch(nn.Module):
                 self.conf, _  = torch.max(self.logits, dim=1)
                 # print(self.conf.item())
                 if self.conf.item() > self.threshold:
-                    # print("{:.2f} > {:.2f}".format(self.conf.item(), self.threshold))
+                    print("{:.2f} > {:.2f}".format(self.conf.item(), self.threshold))
                     self.exit = True
         return x
