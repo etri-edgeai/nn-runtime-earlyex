@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import copy
 
 class DevourModel(Model):
-    def __init__(self, cfg, N=3):
+    def __init__(self, cfg, N=3, backbone=None):
         super(Model, self).__init__()
         self.cfg = cfg
         self.device = cfg['device']
@@ -21,44 +21,47 @@ class DevourModel(Model):
         self.n = N
         self.name = "resnet"
         self.exit_count = torch.zeros(self.n+1)
+        self.devour(backbone, cfg['backbone'])
 
-        
-    def forward_init(self):
-        x = torch.randn(3, 3, 128, 128)
-        print("0. Generating input shape:",x.shape)
-        x = self.head_layer(x)
-        print("1. After head: {}".format(x.shape))
-        for i in range(self.n):
-            x = self.feats[i].forward(x)
-            k = i+2
-            print("{}. After Feat: {}".format(k, x.shape))
-            self.exactly[i].forward(x)
-        
-        for i in range(len(self.fetc)):
-            k +=1
-            x = self.fetc[i].forward(x)
-            print("{}. After Fetc: {}".format(k, x.shape))
-        
-        b, c, w, h = x.shape
-        print("X. Input to Tail layer: ", x.shape)
-        features = 100
-        dropout = 0.5
-        for m in self.tail_list:
-            name = str(type(m).__name__)
-            if "Dropout" in name:
-                dropout = m.p
-            if "Linear" in name:
-                features = m.in_features
-                break
-        return nn.Sequential(
-            nn.Conv2d(
-                in_channels=c, out_channels=features, 
-                kernel_size=1, bias=False),
-            nn.BatchNorm2d(features),
-            nn.AdaptiveAvgPool2d(output_size=1),
-            nn.Dropout(dropout),
-            nn.Flatten(),
-            nn.Linear(features, self.cfg['num_class']))
+
+
+
+    #def forward_init(self):
+    #    x = torch.randn(3, 3, 128, 128)
+    #    print("0. Generating input shape:",x.shape)
+    #    x = self.head_layer(x)
+    #    print("1. After head: {}".format(x.shape))
+    #    for i in range(self.n):
+    #        x = self.feats[i].forward(x)
+    #        k = i+2
+    #        print("{}. After Feat: {}".format(k, x.shape))
+    #        self.exactly[i].forward(x)
+    #    
+    #    for i in range(len(self.fetc)):
+    #        k +=1
+    #        x = self.fetc[i].forward(x)
+    #        print("{}. After Fetc: {}".format(k, x.shape))
+    #    
+    #    b, c, w, h = x.shape
+    #    print("X. Input to Tail layer: ", x.shape)
+    #    features = 100
+    #    dropout = 0.5
+    #    for m in self.tail_list:
+    #        name = str(type(m).__name__)
+    #        if "Dropout" in name:
+    #            dropout = m.p
+    #        if "Linear" in name:
+    #            features = m.in_features
+    #            break
+    #    return nn.Sequential(
+    #        nn.Conv2d(
+    #            in_channels=c, out_channels=features, 
+    #            kernel_size=1, bias=False),
+    #        nn.BatchNorm2d(features),
+    #        nn.AdaptiveAvgPool2d(output_size=1),
+    #        nn.Dropout(dropout),
+    #        nn.Flatten(),
+    #        nn.Linear(features, self.cfg['num_class']))
 
     def hunt(self, module):
         for n, m in module.named_children():
@@ -85,17 +88,27 @@ class DevourModel(Model):
     
     def forward(self, x):
         x = self.head_layer(x)
-        for i in range(self.n):
-            x = self.feats[i].forward(x)
-            self.exactly[i].forward(x)
 
-            if self.exactly[i].exit:
+        for i, (feat, exact) in enumerate(zip(self.feats, self.exactly)):
+            x = feat(x)
+            val = exact(x)
+
+            if exact.exit:
                 self.exit_count[i] += 1
-                self.exactly[i].exit = False
-                return self.exactly[i].logits
+                exact.exit = False
+                return val
+        #for i in range(self.n):
+        #    x = self.feats[i].forward(x)
+        #    val = self.exactly[i].forward(x)
+        #
+        #    if self.exactly[i].exit and val != None:
+        #        self.exit_count[i] += 1
+        #        self.exactly[i].exit = False
+        #        return val
+        #        #return self.exactly[i].logits
         
-        for i in range(len(self.fetc)):
-            x = self.fetc[i].forward(x)
+        for etc in self.fetc:
+            x = etc(x)
         x = self.tail_layer(x)
         self.exit_count[-1] += 1
         return x  
@@ -163,9 +176,14 @@ class DevourModel(Model):
         del self.tail_list
         
     def construct(self):
+
+        input = torch.randn(3, 3, 128, 128)
+
         ## Create head layers
         self.head_layer = nn.Sequential(*self.head_list)
-        
+
+        input = self.head_layer(input)
+
         ## Create body layers
         print('---------------------------------------------------')
 
@@ -176,7 +194,7 @@ class DevourModel(Model):
             N += 1
         div = len(self.body_list) / N
         div = int(div)
-        print("divide size:",div)
+        print("divide size:", div)
         split_list = lambda test_list, x: [test_list[i:i+x] for i in range(0, len(test_list), x)]
         final_list = split_list(self.body_list, div)
         print("Constructing head-body-tail layers with early exits")
@@ -193,15 +211,19 @@ class DevourModel(Model):
                         .format(x))
             print('     || ')
             self.feats.append(nn.Sequential(*final_list[x]))
-            self.exactly.append(Branch(cfg=self.cfg))
+            input = self.feats[x].forward(input)
+            self.exactly.append(
+                Branch(cfg=self.cfg, input = input))
             self.gate.append(False)
             self.temp = False
 
+        
         ## fetc layers are extra body layers without early exits
         for x in range(self.n, len(final_list)):
             for y in range(len(final_list[x])):
                 print('[fetc layer]')
             self.fetc.append(nn.Sequential(*final_list[x]))
+            input = self.fetc[x].forward(input)
         print('     || ')
         print("<tail layer>")
         print('---------------------------------------------------')
@@ -209,5 +231,29 @@ class DevourModel(Model):
         
         ##create tail layer
         print("creating tail layer")
-        self.tail_layer = self.forward_init()
+        b, c, w, h = input.shape
+        print("X. Input to Tail layer: ", input.shape)
+        features = self.cfg['linear']['features']
+        dropout = self.cfg['linear']['dropout']
+
+        for m in self.tail_list:
+            name = str(type(m).__name__)
+            if "Dropout" in name:
+                dropout = m.p
+            if "Linear" in name:
+                features = m.in_features
+                break
+
+        self.tail_layer = nn.Sequential(
+            nn.Conv2d(
+                in_channels=c, out_channels=features, 
+                kernel_size=1, bias=False),
+            nn.BatchNorm2d(features),
+            nn.AdaptiveAvgPool2d(output_size=1),
+            nn.Dropout(dropout),
+            nn.Flatten(),
+            nn.Linear(features, self.cfg['num_class']))
+
+
+        #self.tail_layer = self.forward_init()
         print("Model Set Complete!")
