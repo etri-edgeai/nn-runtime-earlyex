@@ -68,14 +68,16 @@ class DMEBranchTrainer(Trainer):
         self.model.eval()
         with torch.no_grad():
             self.model.forward(image)
-        self.criterion = losses.TripletMarginLoss(margin=0.1)
+        self.criterion = losses.SupConLoss(temperature=0.1)
+        # self.criterion = losses.TripletMarginLoss(margin=0.1)
         # self.criterion = losses.CentroidTripletLoss(margin=0.05)
         # self.criterion = BoneLoss()
         self.ccriterion = nn.CrossEntropyLoss()
-        self.miner = miners.BatchEasyHardMiner(
-            pos_strategy=miners.BatchEasyHardMiner.EASY,
-            neg_strategy=miners.BatchEasyHardMiner.SEMIHARD,
-        )
+        self.miner = miners.UniformHistogramMiner()
+        # self.miner = miners.BatchEasyHardMiner(
+        #     pos_strategy=miners.BatchEasyHardMiner.EASY,
+        #     neg_strategy=miners.BatchEasyHardMiner.SEMIHARD,
+        # )
         self.ece_loss = ECELoss()
         self.optimizer   = torch.optim.Adam(
             self.model.parameters(), lr = self.cfg['lr'])
@@ -235,6 +237,8 @@ class DMEBranchTrainer(Trainer):
             m.soft_logits = torch.zeros(0)
             m.soft_scaled = torch.zeros(0)
             m.temperature.requires_grad = False
+            if m.temperature < 0:
+                m.temperature = torch.nn.Parameter(torch.Tensor([1.0]))
         with torch.no_grad():
             for i, (input,label) in enumerate(val_tbar):
                 input = input.to(self.device)
@@ -367,12 +371,10 @@ class DMEBranchTrainer(Trainer):
             m.proj_path = True
             m.near_path = True
             m.temperature.requires_grad = False
-            m.nn.train_pts = m.nn.train_pts.cpu()
+            m.nn.train_pts = m.nn.train_pts.to(self.device)
         
         self.model.exit_count = torch.zeros(self.model.n+1, dtype=torch.int)
         self.model.exactly[-1].threshold = 0
-        self.model.exactly[0].threshold = 0.70
-        self.model.exactly[1].threshold = 0.8
         with torch.no_grad():
             for (i, data) in enumerate(test_tbar):
                 input = data[0].to(self.device)
@@ -387,3 +389,43 @@ class DMEBranchTrainer(Trainer):
 
         print(self.model.exit_count)
 
+    def metric_test2(self):
+        self.model.eval()
+
+        
+        self.device = self.cfg['test_device']
+
+        self.model.to(self.device)
+        orig = torch.zeros(self.model.n)
+
+        for n, m in enumerate(self.model.exactly):
+            m.cros_path = False
+            m.proj_path = True
+            m.near_path = True
+            m.temperature.requires_grad = False
+            m.nn.train_pts = m.nn.train_pts.to(self.device)
+            orig[n] = m.threshold
+
+        for mm in [-0.3, -0.2, -0.1, -0.05, 0, 0.05, 0.1, 0.2, 0.3]:
+            acc , total = 0 , 0
+            for n, m in enumerate(self.model.exactly):
+                m.threshold = orig[n]
+                m.threshold += mm
+            
+            self.model.exit_count = torch.zeros(self.model.n+1, dtype=torch.int)
+            self.model.exactly[-1].threshold = 0
+            test_tbar = tqdm(self.test_loader)
+
+            with torch.no_grad():
+                for (i, data) in enumerate(test_tbar):
+                    input = data[0].to(self.device)
+                    label = data[1].to(self.device)
+                    total += input.shape[0]
+                    pred = self.model.forward(input)
+                    _ , pred = torch.max(pred, 1)
+                    pred = pred.to(self.device)
+                    acc += pred.eq(label).sum().item()
+                    test_tbar.set_description("total: {}, correct:{}".format(total, acc))
+                print("accuracy: ", acc/ total)
+
+            print(self.model.exit_count)
