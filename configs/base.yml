@@ -38,13 +38,13 @@ branch_training:
   lr: 0.0001
 
 branch:
-  channel: 32
+  channel: 64
   size: 32 
 
 contra:
-  representation: 512
+  representation: 256
   hidden: 256
-  projection: 128
+  projection: 16
 
   
 branch_training:
