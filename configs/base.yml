@@ -8,9 +8,9 @@ lr: 0.0001
 device: cuda:0
 test_device: cpu
 num_class :  10
-batch_size : 128
+batch_size : 256
 workers :    0
-img_size : 128
+img_size : 32
 epochs: 30
 
 #### Backbone Training Configuration ####
@@ -24,13 +24,9 @@ backbone_training:
     - 50
   gamma: 0.5
 
-set_gate:
-  gates:
-    - 4
-    - 8
-  thresholds:
-    - 0
-    - 0
+linear:
+  features: 128
+  dropout: 0.5
 
 #### Branch Training Configuration ####
 branch_training:
@@ -39,7 +35,7 @@ branch_training:
 
 branch:
   channel: 64
-  size: 32 
+  size: 8
 
 contra:
   representation: 256
@@ -62,6 +58,7 @@ path:
   mode: &mode ce_
 
 combine_dir:
+
   performance_dir:
     - *root
     - *checkpoints
