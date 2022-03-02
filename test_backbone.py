@@ -28,9 +28,9 @@ def main():
     trainer.test_loader = torch.utils.data.DataLoader(
         trainer.testset,  
         batch_size= 1, 
-        shuffle=False, 
+        shuffle=True, 
         num_workers=1,
-        pin_memory=False)
+        pin_memory=True)
 
     try:
         print("loading pre-trained backbone for testing...",cfg['backbone_path'])
