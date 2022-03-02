@@ -19,7 +19,7 @@ self = DMEBranchTrainer(model, cfg)
 model = model.to(cfg['device'])
 
 try:
-    for epoch in range(4): 
+    for epoch in range(2): 
         print("epoch: ",epoch)
         self.metric_train()
         # self.metric_valid(epoch)
@@ -28,6 +28,8 @@ try:
 except KeyboardInterrupt:
     print("terminate train")
 
+model_scripted = torch.jit.script(model) # Export to TorchScript
+model_scripted.save('model_scripted.pt') # Save
 
 
 
