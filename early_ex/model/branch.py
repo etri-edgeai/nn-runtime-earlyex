@@ -1,3 +1,4 @@
+from re import M
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -29,7 +30,6 @@ class Branch(nn.Module):
 
         self.proj_size = cfg['contra']['projection']
         self.repr_size = cfg['contra']['representation']
-        self.hidd_size = cfg['contra']['hidden']
         
         self.exit = False
         self.gate = False
@@ -50,18 +50,33 @@ class Branch(nn.Module):
 
         batch, channel, width, height = input.shape
 
+        
         self.transform = nn.Sequential(
-            nn.Conv2d(in_channels=channel, 
-                        out_channels=self.chan_size, 
-                        kernel_size = 1, 
-                        bias = False
-                        ),
+            nn.Conv2d(
+                in_channels=channel, out_channels=self.chan_size, 
+                kernel_size=1, bias=False),
+            nn.BatchNorm2d(num_features=self.chan_size ),
             nn.ReLU(),
             nn.AdaptiveAvgPool2d((self.img_size, self.img_size)),
+            nn.Dropout(0.5),
             nn.Flatten(),
             nn.Linear(self.flat_size, self.repr_size),
-            nn.ReLU(),
-            )
+            nn.ReLU()
+        )
+
+        # self.transform = nn.Sequential(
+        #     nn.AdaptiveAvgPool2d((self.img_size, self.img_size)),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels=channel, 
+        #                 out_channels=self.chan_size, 
+        #                 kernel_size = 1, 
+        #                 bias = False
+        #                 ),
+        #     nn.ReLU(),
+        #     nn.Flatten(),
+        #     nn.Linear(self.flat_size, self.repr_size),
+        #     nn.Sigmoid(),
+        #     )
         
         self.project = nn.Sequential(
             nn.Linear(self.repr_size, self.proj_size),
@@ -113,12 +128,10 @@ class Branch(nn.Module):
         if self.proj_path:
             repp = self.project(self.repr)
             proj = F.normalize(repp)
-            self.proj = proj.clone()
             if self.near_path:
-                dist = self.nn.dist(proj)
-                logits = - dist
-                scaled = torch.div(logits, self.temperature)
-                scaled = F.softmax(scaled, dim=1)
+                scaled = F.softmax(
+                    torch.div(
+                        - self.nn.dist(proj), self.temperature), dim=1)
                 # print("logits: ",self.logits)
                 conf, _  = torch.max(scaled, dim=1)
                 # print(self.conf.item())
@@ -126,42 +139,10 @@ class Branch(nn.Module):
                     # print("{:.2f} > {:.2f}".format(self.conf.item(), self.threshold))
                     self.exit = True
                     return scaled
+            else:
+                self.proj = proj.clone()
+
         return None
 
 
 
-
-# @torch.jit.script
-# def distance_matrix(x, y): #pairwise distance of vectors
-#     # y = x if type(y) == type(None) else y
-#     p = 2
-#     n, d = x.size(0), x.size(1)
-#     m = y.size(0)
-#     x = x.unsqueeze(1).expand(n, m, d)
-#     y = y.unsqueeze(0).expand(n, m, d)
-#     dist = torch.pow(x - y, p).sum(2)
-#     return dist
-
-# class NN(nn.Module):
-#     def __init__(self, X = None, Y = None, p = 2):
-#         super(NN, self).__init__()
-#         self.p = p
-
-#     def set(self, X, Y):
-#         self.train_pts = torch.autograd.Variable(X, requires_grad=False)
-#         self.train_label = torch.autograd.Variable(Y, requires_grad=False)
-
-#     def dist(self, x):
-#         return distance_matrix(x, self.train_pts) ** (1/2)
-
-#     def forward(self, x):
-#         return self.predict(x)
-
-#     def predict(self, x):
-#         #if type(self.train_pts) == type(None) or type(self.train_label) == type(None):
-#         #    name = self.__class__.__name__
-#         #    raise RuntimeError(f"{name} wasn't trained. Need to execute {name}.train() first")
-        
-#         dist = distance_matrix(x, self.train_pts) ** (1/self.p)
-#         labels = torch.argmin(dist, dim=1)
-#         return self.train_label[labels]
