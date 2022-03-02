@@ -1,6 +1,6 @@
 ---
 #### Basic Configuration ####
-backbone: &backbone resnet18
+backbone: &backbone resnet50
 dataset: &dataset cifar10
 num_exits: 4
 
@@ -8,9 +8,9 @@ lr: 0.0001
 device: cuda:0
 test_device: cpu
 num_class :  10
-batch_size : 256
+batch_size : 128
 workers :    0
-img_size : 32
+img_size : 128
 epochs: 30
 
 #### Backbone Training Configuration ####
@@ -34,13 +34,12 @@ branch_training:
   lr: 0.0001
 
 branch:
-  channel: 64
-  size: 8
+  channel: 32
+  size: 16
 
 contra:
-  representation: 256
-  hidden: 256
-  projection: 16
+  representation: 64
+  projection: 32
 
   
 branch_training:
