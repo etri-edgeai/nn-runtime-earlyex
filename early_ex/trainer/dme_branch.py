@@ -86,10 +86,10 @@ class DMEBranchTrainer(Trainer):
         self.ex_num = self.model.n
         self.num_class = self.cfg['num_class']
         self.proj_size = self.cfg['contra']['projection']
-        self.distance = distances.LpDistance()
+        # self.distance = distances.LpDistance()
 
-        for n, m in enumerate(self.model.exactly):
-            m.nn = NN()
+        # for n, m in enumerate(self.model.exactly):
+        #     m.nn = NN()
 
     def metric_train(self):
         for n, m in enumerate(self.model.exactly):
@@ -132,9 +132,12 @@ class DMEBranchTrainer(Trainer):
                 m.mean[y] = torch.mean(vect, dim=0)
                 m.std[y] = torch.std(vect, dim=0)
             
-            X = F.normalize(m.mean.to(self.device), dim=1)
-            Y = torch.linspace(0, self.num_class-1, self.num_class)
-            m.nn.set(X, Y)
+            # X = F.normalize(m.mean.to(self.device), dim=1)
+            # Y = torch.linspace(0, self.num_class-1, self.num_class)
+            # m.nn.set(X, Y)
+            m.nn.train_pts = F.normalize(m.mean.to(self.device), dim=1)
+
+
 
     # def metric_valid(self, epoch):
     #     total = 0
@@ -296,7 +299,7 @@ class DMEBranchTrainer(Trainer):
                 print("Output acc, temperature: {:.4f}, {:.4f}".format(
                     acc, m.temperature.item()))
                 m.temperature.requires_grad = True
-                optimizer = torch.optim.LBFGS([m.temperature],lr=0.007, max_iter=100)
+                optimizer = torch.optim.LBFGS([m.temperature],lr=0.005, max_iter=100)
                 def eval():
                     optimizer.zero_grad()
                     m.scaled = torch.div(m.logits, m.temperature.cpu())
@@ -317,32 +320,37 @@ class DMEBranchTrainer(Trainer):
                 # print("soft_scaled:",soft_scaled_np)
 
                 conf_hist = visualization.ConfidenceHistogram()
-                plt1 = conf_hist.plot(scaled_np, labels_np,title="Conf. After #"+str(n))
+                plt1 = conf_hist.plot(
+                    scaled_np, labels_np,title="Conf. After #"+str(n))
                 name = self.cfg['csv_dir'] + 'Confidence_after_'+str(n)+'.png'
                 plt1.savefig(name,bbox_inches='tight')
 
-                plt2 = conf_hist.plot(logits_np, labels_np,title="Conf. Before #"+str(n))
+                plt2 = conf_hist.plot(
+                    logits_np, labels_np,title="Conf. Before #"+str(n))
                 name = self.cfg['csv_dir'] + 'Confidence_before_'+str(n)+'.png'
                 plt2.savefig(name,bbox_inches='tight')
 
                 rel_diagram = visualization.ReliabilityDiagram()
-                plt3 = rel_diagram.plot(logits_np,labels_np,title="Reliability Before #"+str(n))
+                plt3 = rel_diagram.plot(
+                    logits_np,labels_np,title="Reliability Before #"+str(n))
                 name = self.cfg['csv_dir'] + 'Reliable_before_'+str(n)+'.png'
                 plt3.savefig(name,bbox_inches='tight')
 
                 rel_diagram = visualization.ReliabilityDiagram()
-                plt4 = rel_diagram.plot(scaled_np,labels_np,title="Reliability After #"+str(n))
+                plt4 = rel_diagram.plot(
+                    scaled_np,labels_np,title="Reliability After #"+str(n))
                 name = self.cfg['csv_dir'] + 'Reliable_after_'+str(n)+'.png'
                 plt4.savefig(name,bbox_inches='tight')
 
                 name = self.cfg['csv_dir'] + 'Confusion Matrix'+str(n)+'.png'
-                conf_matrix = visualization.confused(soft_scaled_np, labels_np, self.num_class, name)
+                conf_matrix = visualization.confused(
+                    soft_scaled_np, labels_np, self.num_class, name)
                 
                 name = self.cfg['csv_dir'] + 'RoC_{}'.format(n)
-                m.threshold = visualization.roc_curved2(soft_scaled_np, labels_np, self.num_class, name).item() + 0.05
-                m.threshold += 0.1
-                print("Threshold #{} has been set to {:.4f}.".format(n, m.threshold))
-
+                m.threshold = visualization.roc_curved2(
+                    soft_scaled_np, labels_np, self.num_class, name).item()
+                print("Threshold #{} has been set to {:.4f}.".format(
+                    n, m.threshold))
 
 
     def metric_test(self):
