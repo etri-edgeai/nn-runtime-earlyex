@@ -186,9 +186,9 @@ class NN(nn.Module):
         return self.predict(x)
 
     def predict(self, x):
-        if type(self.train_pts) == type(None) or type(self.train_label) == type(None):
-            name = self.__class__.__name__
-            raise RuntimeError(f"{name} wasn't trained. Need to execute {name}.train() first")
+        #if type(self.train_pts) == type(None) or type(self.train_label) == type(None):
+        #    name = self.__class__.__name__
+        #    raise RuntimeError(f"{name} wasn't trained. Need to execute {name}.train() first")
         
         dist = distance_matrix(x, self.train_pts) ** (1/self.p)
         labels = torch.argmin(dist, dim=1)
