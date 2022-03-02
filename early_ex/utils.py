@@ -174,7 +174,7 @@ class NN(nn.Module):
     def __init__(self, X = None, Y = None, p = 2):
         super(NN, self).__init__()
         self.p = p
-
+        self.set(X, Y)
     def set(self, X, Y):
         self.train_pts = torch.autograd.Variable(X, requires_grad=False)
         self.train_label = torch.autograd.Variable(Y, requires_grad=False)
