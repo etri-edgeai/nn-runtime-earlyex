@@ -12,14 +12,13 @@ print("Devour & Branch Trainer v0.9")
 cfg = config("./configs/base.yml")
 backbone = get_backbone(cfg)
 
-model = DevourModel(cfg, N=cfg['num_exits'])
-model.devour(backbone, cfg['backbone'])
+model = DevourModel(cfg, N=cfg['num_exits'], backbone=backbone)
 self = DMEBranchTrainer(model, cfg)
 
 model = model.to(cfg['device'])
 
 try:
-    for epoch in range(2): 
+    for epoch in range(30): 
         print("epoch: ",epoch)
         self.metric_train()
         # self.metric_valid(epoch)
@@ -29,7 +28,7 @@ except KeyboardInterrupt:
     print("terminate train")
 
 model_scripted = torch.jit.script(model) # Export to TorchScript
-model_scripted.save('model_scripted.pt') # Save
+model_scripted.save('./checkpoints/model_scripted.pt') # Save
 
 
 
