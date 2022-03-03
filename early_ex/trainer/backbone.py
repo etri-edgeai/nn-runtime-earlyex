@@ -11,7 +11,14 @@ from . import Trainer
 class BackboneTrainer(Trainer):
 
     def __init__(self, model, cfg) -> None:
-        super().__init__(model, cfg)
+        super().__init__(model, cfg)        
+        print('criterion: Cross entropy loss')
+        self.criterion = nn.CrossEntropyLoss()
+        print('optimizer: Adam, lr: ',cfg['lr'])
+        self.optimizer = torch.optim.Adam(self.model.backbone.parameters(), lr = self.cfg['lr'])
+        print('scheduler = multistep LR')
+        self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=self.cfg['backbone_training']['milestone'], gamma=0.5)
+
 
     def backbone_train(self, epoch):
         print("Trainer backbone model...")

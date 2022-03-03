@@ -68,12 +68,12 @@ class DMEBranchTrainer(Trainer):
         self.model.eval()
         with torch.no_grad():
             self.model.forward(image)
-        self.criterion = losses.SupConLoss(temperature=0.1)
+        # self.criterion = losses.SupConLoss(temperature=0.1)
         # self.criterion = losses.TripletMarginLoss(margin=0.1)
         # self.criterion = losses.CentroidTripletLoss(margin=0.05)
-        # self.criterion = BoneLoss()
+        self.criterion = BoneLoss()
         self.ccriterion = nn.CrossEntropyLoss()
-        self.miner = miners.UniformHistogramMiner()
+        # self.miner = miners.UniformHistogramMiner()
         # self.miner = miners.BatchEasyHardMiner(
         #     pos_strategy=miners.BatchEasyHardMiner.EASY,
         #     neg_strategy=miners.BatchEasyHardMiner.SEMIHARD,
@@ -110,10 +110,10 @@ class DMEBranchTrainer(Trainer):
             pred = self.model.forward(input)
             for n, m in enumerate(self.model.exactly): 
                 m.temperature.requires_grad=False 
-                # train_loss[n] = self.criterion(
-                #     m.proj, label, temperature = m.temperature)
-                miner_output = self.miner(m.proj, label)
-                train_loss[n] = self.criterion(m.proj, label,miner_output)
+                train_loss[n] = self.criterion(
+                    m.proj, label, temperature = m.temperature)
+                # miner_output = self.miner(m.proj, label)
+                # train_loss[n] = self.criterion(m.proj, label,miner_output)
                 embs = torch.cat((
                     m.proj.detach().cpu(), 
                     label.view(-1,1).detach().cpu()),dim=1)
