@@ -18,7 +18,7 @@ self = DMEBranchTrainer(model, cfg)
 model = model.to(cfg['device'])
 
 try:
-    for epoch in range(10): 
+    for epoch in range(20): 
         print("epoch: ",epoch)
         self.metric_train()
         # self.metric_valid(epoch)
@@ -27,7 +27,7 @@ except KeyboardInterrupt:
     print("terminate train")
 
 self.metric_visualize()
-self.metric_test2()
+self.metric_test()
 
 model_scripted = torch.jit.script(model) # Export to TorchScript
 model_scripted.save('./checkpoints/model_scripted.pt') # Save
