@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 print("Devour & Branch Trainer v0.9")
 
-cfg = config("./configs/base.yml")
+cfg = config("./early_ex/configs/base.yml")
 backbone = get_backbone(cfg)
 
 model = DevourModel(cfg, N=cfg['num_exits'], backbone=backbone)

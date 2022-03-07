@@ -17,7 +17,7 @@ import sys
 def main():
     print("Branch Trainer v0.5")
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default = "./configs/base.yml")
+    parser.add_argument('--config', type=str, default = "./early_ex/configs/base.yml")
     args = parser.parse_args()
     cfg = config(args.config)
     backbone = get_backbone(cfg)

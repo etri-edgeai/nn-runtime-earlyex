@@ -1,11 +1,5 @@
-import yaml
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torchvision import transforms
-from torchvision import datasets
 from tqdm import tqdm
-import numpy as np
 from datetime import datetime
 from early_ex.utils import config, get_dataloader, get_dataset
 from early_ex.model.backbone import get_backbone
@@ -17,12 +11,9 @@ import sys
 def main():
     print("Test backbone ")
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default = "./configs/base.yml")
+    parser.add_argument('--config', type=str, default = "./early_ex/configs/base.yml")
     args = parser.parse_args()
     cfg = config(args.config)
-    # backbone = get_backbone(cfg)
-    # model = Model(backbone, cfg)
-    # trainer = BackboneTrainer(model, cfg)
     trainset, testset = get_dataset(cfg)
 
     test_loader = torch.utils.data.DataLoader(

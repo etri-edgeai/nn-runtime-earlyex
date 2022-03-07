@@ -11,7 +11,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--config', type=str, 
-        default = "./configs/base.yml")
+        default = "./early_ex/configs/base.yml")
     args = parser.parse_args()
     cfg = config(args.config)
     backbone = get_backbone(cfg)
