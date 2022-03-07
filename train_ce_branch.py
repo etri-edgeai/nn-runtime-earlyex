@@ -1,82 +1,32 @@
 import yaml
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torchvision import transforms
-from torchvision import datasets
-from tqdm import tqdm
-import numpy as np
-from datetime import datetime
-from early_ex.utils import config, get_dataloader, get_dataset
+import argparse
+from early_ex.utils import *
+from early_ex.model.devour import DevourModel
 from early_ex.model.backbone import get_backbone
-from early_ex.trainer.ce_branch import CEBranchTrainer
-from early_ex.model import Model
-import argparse 
-import sys
+from early_ex.trainer.dce_branch import DCEBranchTrainer
 
 def main():
-    print("Branch Trainer v0.5")
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default = "./early_ex/configs/base.yml")
-    args = parser.parse_args()
-    cfg = config(args.config)
+    print("Devour & Branch Trainer v0.9")
+
+    cfg = config("./early_ex/configs/base.yml")
     backbone = get_backbone(cfg)
-    try:
-        print("loading pre-trained backbone",cfg['backbone_path'])
-        backbone.load_state_dict(
-            torch.load(cfg['backbone_path']),strict=False)
-    except RuntimeError as e:
-        print(e)
-    except FileNotFoundError as e:
-        print(e)
-        print("Backbone file not found! Maybe try training it first?")
-    model = Model(backbone, cfg)
-    trainer = CEBranchTrainer(model, cfg)
-    trainer.trainset, trainer.testset = get_dataset(cfg)
 
-    trainer.train_loader = torch.utils.data.DataLoader(
-        trainer.trainset, 
-        batch_size=cfg['batch_size'], 
-        shuffle=True,  
-        num_workers=cfg['workers'],
-        pin_memory=True) 
-
-    trainer.val_loader = torch.utils.data.DataLoader(
-        trainer.testset, 
-        batch_size=cfg['batch_size'], 
-        shuffle=False,  
-        num_workers=cfg['workers'],
-        pin_memory=True) 
+    model = DevourModel(cfg, N=cfg['num_exits'], backbone=backbone)
+    trainer = DCEBranchTrainer(model, cfg)
+    model = model.to(cfg['device'])
 
     try:
-        print("loading previous model...")
-        trainer.model.backbone.load_state_dict(
-            torch.load(trainer.cfg['model_path']), strict=False
-            )
-    except RuntimeError as e:
-        print(e)
-    except FileNotFoundError as e:
-        print(e)
-
-    trainer.branch_init()
-
-    try:
-        for epoch in range(50):
+        for epoch in range(10):
             trainer.branch_train(epoch)
             trainer.scheduler.step()
-            trainer.branch_valid(epoch)
+            trainer.branch_visualize(epoch)
     except KeyboardInterrupt:
         print("terminating backbone training")
-
-    try:
-        print("calibrating branch using temperature scale")
-        trainer.branch_calibrate()
-
-    except KeyboardInterrupt:
-        print("terminating backbone training")
-
-    print("saving model to: ",cfg['model_path'])
-    torch.save(trainer.model.backbone.state_dict(), cfg['model_path'])
+    trainer.branch_visualize(epoch)
+    trainer.branch_test()
+        
+    model_scripted = torch.jit.script(model) # Export to TorchScript
+    model_scripted.save('./checkpoints/model_scripted.pt') # Save
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 ---
 #### Basic Configuration ####
-backbone: &backbone resnet50
+backbone: &backbone resnet18
 dataset: &dataset cifar10
 num_exits: 4
 
@@ -65,8 +65,7 @@ combine_dir:
 
   dataset_dir: 
     - *root
-    - *checkpoints
-    - data/
+    - dataset/
     - *dataset
     - /
 

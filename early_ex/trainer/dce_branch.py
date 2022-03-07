@@ -3,45 +3,15 @@ from . import Trainer
 from tqdm import tqdm
 import numpy as np
 import torch.nn as nn
-from ..model.branch import Branch, Gate
 import torch.nn.functional as F
 from early_ex import visualization
+from early_ex.utils import *
+from early_ex.loss import *
 
-
-
-class ECELoss(nn.Module):
-    def __init__(self, n_bins=15):
-        """
-        n_bins (int): number of confidence interval bins
-        """
-        super(ECELoss, self).__init__()
-        bin_boundaries = torch.linspace(0, 1, n_bins + 1)
-        self.bin_lowers = bin_boundaries[:-1]
-        self.bin_uppers = bin_boundaries[1:]
-
-    def forward(self, logits, labels):
-        softmaxes = F.softmax(logits, dim=1)
-        confidences, predictions = torch.max(softmaxes, 1)
-        accuracies = predictions.eq(labels)
-
-        ece = torch.zeros(1, device=logits.device)
-        for bin_lower, bin_upper in zip(self.bin_lowers, self.bin_uppers):
-            # Calculated |confidence - accuracy| in each bin
-            in_bin = confidences.gt(
-                bin_lower.item()) * confidences.le(bin_upper.item())
-            prop_in_bin = in_bin.float().mean()
-            if prop_in_bin.item() > 0:
-                accuracy_in_bin = accuracies[in_bin].float().mean()
-                avg_confidence_in_bin = confidences[in_bin].mean()
-                ece += torch.abs(
-                    avg_confidence_in_bin - accuracy_in_bin) * prop_in_bin
-        return ece
 
 class DCEBranchTrainer(Trainer):
     def __init__(self, model, cfg) -> None:
         super().__init__(model, cfg)
-        
-    def branch_init(self):
         print("--Freeze Head and Body Layer...")
         for n, m in self.model.feats.named_parameters():
             m.requires_grad_ = False
@@ -55,29 +25,62 @@ class DCEBranchTrainer(Trainer):
         for n, m in self.model.tail_layer.named_parameters():
             m.requires_grad_ = True
 
-        print("--Run initial test drive...")
-        image , label = self.trainset.__getitem__(0)
-        image = image.view(1, image.shape[0], image.shape[1], image.shape[2])
-        print("image.shape: ",image.shape)
-        self.model.eval()
-        self.model.to(self.device)
-        self.model.forward(image.to(self.device))
+        self.trainset, self.testset = get_dataset(cfg)
 
-        self.criterion = nn.CrossEntropyLoss()               
-        self.optimizer   = torch.optim.Adam(self.model.parameters(), lr = self.cfg['lr'])
-        self.scheduler   = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[5, 10, 15, 20], gamma=0.5)
-        print('criterion: Cross entropy loss')
-        print('optimizer: Adam, lr: ', self.cfg['lr'])
-        print('scheduler = multistep LR')
+        self.train_loader = torch.utils.data.DataLoader(
+            self.trainset, 
+            batch_size = cfg['batch_size'], 
+            shuffle=True,  
+            num_workers = cfg['workers'],
+            pin_memory = True) 
+
+        self.val_loader = torch.utils.data.DataLoader(
+            self.testset, 
+            batch_size = cfg['batch_size'], 
+            shuffle=False,  
+            num_workers = cfg['workers'],
+            pin_memory = True) 
+
+        self.test_loader = torch.utils.data.DataLoader(
+            self.testset, 
+            batch_size = 1, 
+            shuffle=False,  
+            num_workers=cfg['workers'],
+            pin_memory=True) 
+        
+        # print("--Run initial test drive...")
+        # image , label = self.trainset.__getitem__(0)
+        # image = image.view(1, image.shape[0], image.shape[1], image.shape[2])
+        # print("image.shape: ",image.shape)
+        # self.model.eval()
+        # with torch.no_grad():
+        #     self.model.forward(image)
+
+        self.criterion = nn.CrossEntropyLoss()
+        self.ece_loss  = ECELoss()
+        self.optimizer = torch.optim.Adam(
+            self.model.parameters(), lr = self.cfg['lr'])
+
+        self.scheduler   = torch.optim.lr_scheduler.MultiStepLR(
+            self.optimizer, milestones=[5, 10, 15, 20], gamma=0.5)
+
+        self.ex_num = self.model.n
+        self.num_class = self.cfg['num_class']
+        self.proj_size = self.cfg['contra']['projection']
+        # self.distance = distances.LpDistance()
+
+        # for n, m in enumerate(self.model.exactly):
+        #     m.nn = NN()
 
     def branch_train(self, epoch):
         self.model.train()
         ex_num = self.model.n
         print("Epoch " + str(epoch) + ':') 
-        for n in range(ex_num):
-            self.model.exactly[n].requires_grad = True
-            self.model.exactly[n].cross = True
-            self.model.exactly[n].gate = False
+        for n, m in enumerate(self.model.exactly):
+            m.cros_path = True
+            m.pred_path = False
+            m.proj_path = False
+            m.near_path = False
 
         for i, data in enumerate(tqdm(self.train_loader)):
             losses = torch.zeros([ex_num + 1]).to(self.device)
@@ -88,62 +91,115 @@ class DCEBranchTrainer(Trainer):
 
             for n in range(ex_num):
                 m = self.model.exactly[n]
-                losses[n] = self.criterion(m.pred, label)  
+                losses[n] = self.criterion(m.logits, label)  
             losses[ex_num] = self.criterion(pred, label)
             self.optimizer.zero_grad()
             loss = torch.sum(losses)
             loss.backward()
             self.optimizer.step()
 
-    def branch_valid(self, epoch, use_temp = False, test=False):
+    def branch_visualize(self, epoch, use_temp = False, test=False):
         print("--Branch Validation...")
         self.model.eval()
         ex_num = self.model.n
         total = 0
-        corrects = []
-        val_loss = []
+        val_loss = torch.zeros(ex_num + 1)
         preds   = []
+        labels = torch.zeros(0)
 
         # initialize list
-        for n in range(ex_num + 1):
-            corrects.append(0.0)
-            val_loss.append(0.0)
-            preds.append(torch.zeros((0)))
+        for n, m in enumerate(self.model.exactly):
+            m.cros_path = True
+            m.pred_path = False
+            m.proj_path = False
+            m.near_path = False
+
+            m.logitss = torch.zeros(0)
+            m.scaled = torch.zeros(0)
+            m.soft_logits = torch.zeros(0)
+            m.soft_scaled = torch.zeros(0)
+            m.corrects = 0
 
         with torch.no_grad():
-            tbar = tqdm(self.val_loader)
-            for i, data in enumerate(tbar):
-                input = data[0].to(self.device)
-                label = data[1].to(self.device)
-                predf = self.model.forward(input)
-                val_loss[ex_num] += self.criterion(predf, label).item()
-                confs, predz = torch.max(predf, 1)
-                corrects[ex_num] += predz.eq(label).sum().item()
+            val_tbar = tqdm(self.val_loader)
+            for i, (input,label) in enumerate(val_tbar):
+                input = input.to(self.device)
+                label = label
                 total += label.size(0)
-                # get branches
+                predf = self.model.forward(input)
+                labels = torch.cat((labels, label), dim=0)
 
-                for n in range(ex_num):
-                    m = self.model.exactly[n]
-                    val_loss[n] += self.criterion(m.pred, label).item()
-                    conf, pred = torch.max(m.pred, 1)
-                    corrects[n] += pred.eq(label).sum().item()
-                    preds[n] = torch.cat((preds[n], pred.cpu().detach()), dim=0)
+                for n, m in enumerate(self.model.exactly):
+                    logits = m.logits.detach().cpu()
+                    m.logitss = torch.cat((m.logitss, logits), dim=0)
+                    conf, pred = torch.max(logits, dim=1)
+                    m.corrects += pred.eq(label).sum().item()
+
+
+            for n, m in enumerate(self.model.exactly):
+                # calculate branch accuracy
+                acc = 100.* m.corrects / total
+                print("Branch: {}, acc: {:.2f}".format(n, acc))
+                np.set_printoptions(suppress=True)
+                m.temperature.requires_grad = True
+                optimizer = torch.optim.LBFGS([m.temperature],lr=0.005, max_iter=100)
+                def eval():
+                    optimizer.zero_grad()
+                    m.scaled = torch.div(m.logitss, m.temperature.cpu())
+                    loss = self.criterion(m.scaled , labels.long())
+                    loss.backward(retain_graph = True)
+                    return loss
+                optimizer.step(eval)
             
-                tbar.set_description('total: {}, c0: {}, c4:{}'.format(total, corrects[0], corrects[-1]))
 
+                labels_np = labels.numpy()
+                logits_np = m.logitss.numpy()
+                scaled_np = m.scaled.numpy()
+                # print("scaled_np:",scaled_np)
+                m.soft_logits = F.softmax(m.logitss, dim=1)
+                m.soft_scaled = F.softmax(m.scaled, dim=1)
+                soft_logits_np = m.soft_logits.numpy()
+                soft_scaled_np = m.soft_scaled.numpy()
+                # print("soft_scaled:",soft_scaled_np)
 
-        for n in range (ex_num):  
-            # get branch
-            m = self.model.exactly[n]
+                conf_hist = visualization.ConfidenceHistogram()
+                plt1 = conf_hist.plot(
+                    scaled_np, labels_np,title="Conf. After #"+str(n))
+                name = self.cfg['csv_dir'] + 'Confidence_after_'+str(n)+'.png'
+                plt1.savefig(name,bbox_inches='tight')
 
-            # calculate branch accuracy
-            acc = 100.* corrects[n] / total
-            val = val_loss[n] / total
-            print("Branch: {}, acc: {:.2f}, val_loss: {:.4f}".format(n, acc, val))
-            np.set_printoptions(suppress=True)
-        acc = 100.* corrects[ex_num] / total
-        val = val_loss[ex_num] / total
-        print("Output,    acc: {}, val_loss: {}".format(acc, val))
+                plt2 = conf_hist.plot(
+                    logits_np, labels_np,title="Conf. Before #"+str(n))
+                name = self.cfg['csv_dir'] + 'Confidence_before_'+str(n)+'.png'
+                plt2.savefig(name,bbox_inches='tight')
+
+                rel_diagram = visualization.ReliabilityDiagram()
+                plt3 = rel_diagram.plot(
+                    logits_np,labels_np,title="Reliability Before #"+str(n))
+                name = self.cfg['csv_dir'] + 'Reliable_before_'+str(n)+'.png'
+                plt3.savefig(name,bbox_inches='tight')
+
+                rel_diagram = visualization.ReliabilityDiagram()
+                plt4 = rel_diagram.plot(
+                    scaled_np,labels_np,title="Reliability After #"+str(n))
+                name = self.cfg['csv_dir'] + 'Reliable_after_'+str(n)+'.png'
+                plt4.savefig(name,bbox_inches='tight')
+
+                name = self.cfg['csv_dir'] + 'Confusion Matrix'+str(n)+'.png'
+                conf_matrix = visualization.confused(
+                    soft_scaled_np, labels_np, self.num_class, name)
+                
+                name = self.cfg['csv_dir'] + 'RoC_{}'.format(n)
+                m.threshold = visualization.roc_curved3(
+                    soft_scaled_np, 
+                    labels_np, 
+                    self.num_class, 
+                    name,
+                    n, 
+                    self.model.n).item()
+                print("Threshold #{} has been set to {:.4f}.".format(
+                    n, m.threshold))
+
         torch.cuda.empty_cache() 
         return None
 
@@ -261,23 +317,30 @@ class DCEBranchTrainer(Trainer):
         print("model saved...")
 
     
-    def open_time_test(self):
-        self.model.backbone.eval()
-        for i in range(0, self.model.ex_num):
-            m = self.model.exactly[i]
-            m.gate = True
-            m.threshold = 0.9
-            m.temp = True
+    def branch_test(self):
+        self.model.eval()
+        acc , total = 0 , 0
+        test_tbar = tqdm(self.test_loader)
+        self.device = self.cfg['test_device']
+        self.model.to(self.device)
 
-        tbar = tqdm(self.test_loader)
-        acc = 0 
-        total = 0
-        for (i, data) in enumerate(tbar):
-            input = data[0].to(self.device)
-            label = data[1]
-            total += input.shape[0]
-            pred = self.model.forward(input)
-            _ , pred = torch.max(pred, 1)
-            acc += pred.eq(label).sum().item()
-            tbar.set_description("total: {}, correct:{}".format(total, acc))
-        print(print("accuracy: ", acc/ total))
+        for n, m in enumerate(self.model.exactly):
+            m.cros_path = True
+            m.pred_path = True
+            m.proj_path = False
+            m.near_path = False
+            m.corrects = 0
+        self.model.exit_count = torch.zeros(self.model.n+1, dtype=torch.int)
+
+        with torch.no_grad():
+            for (i, data) in enumerate(test_tbar):
+                input = data[0].to(self.device)
+                label = data[1]
+                total += input.shape[0]
+                pred = self.model.forward(input)
+                _ , pred = torch.max(pred, 1)
+                pred = pred.to(self.device)
+                acc += pred.eq(label).sum().item()
+                test_tbar.set_description("total: {}, correct:{}".format(total, acc))
+            print("accuracy: ", acc/ total)
+        print(self.model.exit_count)

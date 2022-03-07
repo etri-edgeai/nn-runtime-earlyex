@@ -5,7 +5,6 @@ import numpy as np
 import torch.nn as nn
 from ..model.branch import Branch, Gate
 import torch.nn.functional as F
-from metric_ex import visualization
 
 class MEBranchTrainer(Trainer):
     def __init__(self, model, cfg) -> None:

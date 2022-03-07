@@ -22,46 +22,9 @@ class DevourModel(Model):
         self.name = "resnet"
         self.exit_count = torch.zeros(self.n+1)
         self.devour(backbone, cfg['backbone'])
-
-
-
-
-    #def forward_init(self):
-    #    x = torch.randn(3, 3, 128, 128)
-    #    print("0. Generating input shape:",x.shape)
-    #    x = self.head_layer(x)
-    #    print("1. After head: {}".format(x.shape))
-    #    for i in range(self.n):
-    #        x = self.feats[i].forward(x)
-    #        k = i+2
-    #        print("{}. After Feat: {}".format(k, x.shape))
-    #        self.exactly[i].forward(x)
-    #    
-    #    for i in range(len(self.fetc)):
-    #        k +=1
-    #        x = self.fetc[i].forward(x)
-    #        print("{}. After Fetc: {}".format(k, x.shape))
-    #    
-    #    b, c, w, h = x.shape
-    #    print("X. Input to Tail layer: ", x.shape)
-    #    features = 100
-    #    dropout = 0.5
-    #    for m in self.tail_list:
-    #        name = str(type(m).__name__)
-    #        if "Dropout" in name:
-    #            dropout = m.p
-    #        if "Linear" in name:
-    #            features = m.in_features
-    #            break
-    #    return nn.Sequential(
-    #        nn.Conv2d(
-    #            in_channels=c, out_channels=features, 
-    #            kernel_size=1, bias=False),
-    #        nn.BatchNorm2d(features),
-    #        nn.AdaptiveAvgPool2d(output_size=1),
-    #        nn.Dropout(dropout),
-    #        nn.Flatten(),
-    #        nn.Linear(features, self.cfg['num_class']))
+        self.head_list = []
+        self.body_list = []
+        self.tail_list = []
 
     def hunt(self, module):
         for n, m in module.named_children():
@@ -115,10 +78,6 @@ class DevourModel(Model):
         return x  
 
     def devour(self, backbone, name='resnet'):
-        self.head_list = []
-        self.body_list = []
-        self.tail_list = []
-        
         ### bite model based on types
         print("----------------------------------------")
         print("Scouting Module...")

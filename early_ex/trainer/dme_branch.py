@@ -2,14 +2,11 @@ import enum
 import torch
 from . import Trainer
 from tqdm import tqdm
-import numpy as np
 import torch.nn as nn
-from ..model.branch import Branch
 import torch.nn.functional as F
 from early_ex import visualization
 from early_ex.utils import *
 from early_ex.loss import *
-import pytorch_metric_learning
 import pytorch_metric_learning.utils.logging_presets as logging_presets
 from pytorch_metric_learning import losses, miners, samplers, testers, trainers
 from pytorch_metric_learning.utils import common_functions
@@ -139,94 +136,11 @@ class DMEBranchTrainer(Trainer):
             # m.nn.set(X, Y)
             m.nn.train_pts = F.normalize(m.mean.to(self.device), dim=1)
 
-
-
-    # def metric_valid(self, epoch):
-    #     total = 0
-    #     self.model.eval()
-    #     val_tbar = tqdm(self.val_loader)
-    #     corrects = torch.zeros(self.model.n).to(self.device) 
-    #     far = torch.zeros(self.model.n, 1)
-    #     confs = torch.zeros(self.model.n).to(self.device)
-    #     labels = torch.zeros(0)
-
-    #     for n, m in enumerate(self.model.exactly):
-    #         m.cros_path = False
-    #         m.proj_path = True
-    #         m.near_path = False
-    #         m.logits = torch.zeros(0)
-
-    #     val_ece_loss = torch.zeros([self.ex_num]).to(self.device)
-
-    #     with torch.no_grad():
-    #         for i, (input, label) in enumerate(val_tbar):
-    #             input = input.to(self.device)
-    #             label = label.to(self.device)
-    #             pred = self.model.forward(input)
-    #             total += label.size(0)
-
-    #             labels = torch.cat((labels, label.detach().cpu()), dim=0)
-
-    #             for n, m in enumerate(self.model.exactly):
-    #                 # proj = m.proj.detach().to(self.device)
-    #                 ## Original NN predict
-    #                 # pred = m.nn.predict(proj).int()
-                    
-    #                 ## distance
-    #                 #dist = self.distance(proj, m.nn.train_pts)
-    #                 #self.logits = torch.div(-dist, m.temperature)
-    #                 #val_ece_loss[n] = self.ece_loss(self.logits, label).item()
-    #                 #self.logits = F.softmax(self.logits, dim=1)                   
-    #                 #conf, pred = torch.max(self.logits, dim=1)
-
-    #                 ## distance based on normal distribution
-    #                 # nn, d = proj.size(0), proj.size(1)
-    #                 # mm = m.mean.size(0)
-    #                 # x = proj.unsqueeze(1).expand(n2n, mm, d)
-    #                 # y = m.mean.unsqueeze(0).expand(nn, mm, d)
-    #                 # s = m.std.unsqueeze(0).expand(nn, mm, d)
-    #                 # logits = torch.mean(torch.abs(x - y) / s, dim=2)
-    #                 # logits = F.softmax(-logits / m.temperature.cpu(), dim=1)
-    #                 # conf, pred = torch.max(logits, dim=1)
-                    
-    #                 ## distance ver 1.5
-    #                 proj = m.proj.to(self.device)
-    #                 mean = m.mean.to(self.device)
-    #                 temp = m.temperature.to(self.device)
-    #                 nn,mm,dd = proj.size(0), m.mean.size(0), proj.size(1)
-    #                 proj = proj.unsqueeze(1).expand(nn, mm, dd)
-    #                 mean = mean.unsqueeze(0).expand(nn, mm, dd)
-    #                 logits = torch.sum(torch.pow(proj - mean, 2), dim=2) ** (1/2)
-    #                 logits = - logits
-    #                 conf, pred = torch.max(F.softmax(logits / temp, dim=1), dim=1)
-    #                 confs[n] = torch.cat((confs[n], conf.detach().cpu()), dim=0)
-                    
-    #                 # _, pred = torch.max(F.softmax(logits, dim=1), dim=1)
-    #                 #self.logits = torch.div(-1 , dist)
-    #                 #self.logits = F.softmax(self.logits, dim=1)
-    #                 #conf, pred = torch.max(self.logits, dim=1)
-    #                 corrects[n] += pred.eq(label).sum().item()
-
-    #                 m.logits
-    #         for n, m in enumerate(self.model.exactly):
-    #             acc = 100.* corrects[n] / total
-    #             print("Output acc, temperature: {:.4f}, {:.4f}".format(
-    #                 acc, m.temperature.item()))
-
-    #             logits_np = 
-    #             conf_hist = visualization.ConfidenceHistogram()
-    #             plt2 = conf_hist.plot(logits_np, labels_np,title="Conf. Before #"+str(n))
-    #             name = self.cfg['csv_dir'] + 'Confidence_before_'+str(n)+'.png'
-    #             plt2.savefig(name,bbox_inches='tight')
-    #     torch.cuda.empty_cache()
-
     def metric_visualize(self):
         total = 0
         self.model.eval()
         val_tbar = tqdm(self.val_loader)
-        corrects = torch.zeros(self.model.n)
         labels = torch.zeros(0)
-        val_ece_loss = torch.zeros([self.ex_num]).to(self.device)
 
         for n, m in enumerate(self.model.exactly):
             m.cros_path = False
@@ -236,71 +150,31 @@ class DMEBranchTrainer(Trainer):
             m.scaled = torch.zeros(0)
             m.soft_logits = torch.zeros(0)
             m.soft_scaled = torch.zeros(0)
+            m.corrects = 0
             m.temperature.requires_grad = False
             if m.temperature < 0:
-                m.temperature = torch.autograd.Variable(
-                    torch.Tensor([1.0]),requires_grad=True)
+                m.temperature[0] = 1.0
+
         with torch.no_grad():
             for i, (input,label) in enumerate(val_tbar):
                 input = input.to(self.device)
                 label = label
-                pred = self.model.forward(input)
                 total += label.size(0)
+                pred = self.model.forward(input)
                 labels = torch.cat((labels, label), dim=0)
+
                 for n, m in enumerate(self.model.exactly):
-                    ## distance ver 1
-                    # proj = m.proj.detach().cpu()
-                    # dist = m.nn.dist(proj) 
-                    # logits = -dist
-                    # soft = F.softmax(logits / m.temperature.cpu(), dim=1)
-                    # conf, pred = torch.max(soft, dim=1)
-
-
-                    ## Distance ver 1.5
-                    # proj = m.proj.to(self.device)
-                    # mean = m.mean.to(self.device)
-                    # temp = m.temperature.to(self.device)
-
-                    # nn,mm,dd = proj.size(0), mean.size(0), proj.size(1)
-                    # proj = proj.unsqueeze(1).expand(nn, mm, dd)
-                    # mean = mean.unsqueeze(0).expand(nn, mm, dd)
-                    # logits = torch.pow(proj - mean, 2).sum(2) ** (1/2)
                     dist = m.nn.dist(m.proj)
                     logits = - dist
                     log = F.softmax(logits, dim=1)
                     conf, pred = torch.max(log, dim=1)
 
-                    ## distance ver 2
-                    # proj = m.proj.detach().cpu()
-                    # nn,mm,dd = proj.size(0), m.mean.size(0), proj.size(1)
-                    # proj = proj.unsqueeze(1).expand(nn, mm, dd)
-                    # mean = m.mean.unsqueeze(0).expand(nn, mm, dd)
-                    # stdd = m.std.unsqueeze(0).expand(nn, mm, dd)
-                    # logits = torch.sum(torch.abs(proj - mean)/ stdd, dim=2)
-                    # logits = - logits
-
-                    ## Distance ver 2.5
-                    # proj = m.proj.detach().cpu()
-                    # nn,mm,dd = proj.size(0), m.mean.size(0), proj.size(1)
-                    # proj = proj.unsqueeze(1).expand(nn, mm, dd)
-                    # mean = m.mean.unsqueeze(0).expand(nn, mm, dd)
-                    # stdd = m.std.unsqueeze(0).expand(nn, mm, dd)
-                    # logits = torch.div(torch.pow(proj - mean, 2) ** 1/2, stdd).mean(2)
-                    # logits = - logits
-
-
-
-                    ## distance ver 3
-                    # proj = m.proj.detach.cpu()
-                    # logits = m.nn.dist(m.proj)
-                    # conf, pred = torch.max(F.softmax(logits, dim=1), dim=1)
-                    
                     m.logits = torch.cat((m.logits, logits.detach().cpu()), dim=0)
                     pred = pred.detach().cpu()
-                    corrects[n] += pred.eq(label).sum().item()
+                    m.corrects += pred.eq(label).sum().item()
 
             for n, m in enumerate(self.model.exactly):
-                acc = 100.* corrects[n] / total
+                acc = 100.* m.corrects / total
                 print("Output acc, temperature: {:.4f}, {:.4f}".format(
                     acc, m.temperature.item()))
                 m.temperature.requires_grad = True
@@ -308,7 +182,6 @@ class DMEBranchTrainer(Trainer):
                 def eval():
                     optimizer.zero_grad()
                     m.scaled = torch.div(m.logits, m.temperature.cpu())
-                    # m.scaled = torch.cat((m.scaled, scaled.cpu()),dim=0)
                     loss = self.ccriterion(m.scaled , labels.long())
                     loss.backward(retain_graph = True)
                     return loss
@@ -352,8 +225,13 @@ class DMEBranchTrainer(Trainer):
                     soft_scaled_np, labels_np, self.num_class, name)
                 
                 name = self.cfg['csv_dir'] + 'RoC_{}'.format(n)
-                m.threshold = visualization.roc_curved2(
-                    soft_scaled_np, labels_np, self.num_class, name).item()
+                m.threshold = visualization.roc_curved3(
+                    soft_scaled_np, 
+                    labels_np, 
+                    self.num_class, 
+                    name,
+                    n, 
+                    self.model.n).item()
                 print("Threshold #{} has been set to {:.4f}.".format(
                     n, m.threshold))
 
@@ -362,9 +240,7 @@ class DMEBranchTrainer(Trainer):
         self.model.eval()
         acc , total = 0 , 0
         test_tbar = tqdm(self.test_loader)
-        
         self.device = self.cfg['test_device']
-
         self.model.to(self.device)
 
         for n, m in enumerate(self.model.exactly):
@@ -375,7 +251,7 @@ class DMEBranchTrainer(Trainer):
             m.nn.train_pts = m.nn.train_pts.to(self.device)
         
         self.model.exit_count = torch.zeros(self.model.n+1, dtype=torch.int)
-        self.model.exactly[-1].threshold = 0
+
         with torch.no_grad():
             for (i, data) in enumerate(test_tbar):
                 input = data[0].to(self.device)

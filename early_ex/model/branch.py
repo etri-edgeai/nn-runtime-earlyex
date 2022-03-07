@@ -35,7 +35,12 @@ class Branch(nn.Module):
         self.cros_path = False
         self.proj_path = False
         self.near_path = False
+        self.pred_path = False
         self.threshold = 0.8
+        
+        self.logits = torch.zeros(0)
+        self.proj = torch.zeros(0)
+
         self.temperature = nn.Parameter(
             torch.Tensor([1.0]), requires_grad=True)
 
@@ -118,11 +123,15 @@ class Branch(nn.Module):
 
         if self.cros_path:
             logits = self.classifier(self.repr)
-            scaled = F.softmax(logits / self.temperature, dim=1)
-            conf, _ = torch.max(scaled, dim=1)
-            if conf.item() > self.threshold:
-                self.exit = True
-                return scaled
+            if self.pred_path:
+                scaled = F.softmax(
+                    logits / self.temperature, dim=1)
+                conf, pred = torch.max(scaled, dim=1)
+                if conf.item() > self.threshold:
+                    self.exit = True
+                    return scaled        
+            else:
+                self.logits = logits.clone()
 
         if self.proj_path:
             repp = self.project(self.repr)

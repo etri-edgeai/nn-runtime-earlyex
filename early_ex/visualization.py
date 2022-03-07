@@ -282,6 +282,10 @@ def roc_curved2(output, labels, num_class, name):
     X = conf
 
     fpr, tpr, thresholds = roc_curve(y, X)
+    print("fpr: ",fpr)
+    print("tpr: ",tpr)
+    print("threshold:", thresholds)
+
     roc_auc = auc(fpr, tpr)
     plt.plot(
         fpr, 
@@ -304,7 +308,7 @@ def roc_curved2(output, labels, num_class, name):
     plt.clf()
     return opt_thres
 
-def roc_curved3(output, labels, num_class, name):
+def roc_curved3(output, labels, num_class, name, branch=0, total=4):
     pred = np.argmax(output, axis=1)
     conf = np.amax(output, axis=1)
     p = []
@@ -330,7 +334,14 @@ def roc_curved3(output, labels, num_class, name):
     plt.legend(loc="lower right")
     namef = name +'.png' 
     plt.savefig(namef, bbox_inches='tight')
-    gmeans =np.sqrt(tpr * (1-fpr))
-    opt_thres = thresholds[np.argmax(gmeans)]
+    gmeans = np.sqrt(tpr * (1-fpr))
+    # print("gmeans: ", gmeans)
+    # opt_thres = thresholds[np.argmax(gmeans)]
+    opt_thres = thresholds[np.argmax(np.where(fpr<=0.05))]
+    tot = total - 1
+    print('opt_thres: ', opt_thres)
+    branch_discount = opt_thres * (-branch) / (tot)
+    print('branch_discount: ',branch_discount)
+    opt_thres = opt_thres + branch_discount
     plt.clf()
     return opt_thres
