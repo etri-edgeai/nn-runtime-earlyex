@@ -339,9 +339,7 @@ def roc_curved3(output, labels, num_class, name, branch=0, total=4):
     # opt_thres = thresholds[np.argmax(gmeans)]
     opt_thres = thresholds[np.argmax(np.where(fpr<=0.05))]
     tot = total - 1
-    print('opt_thres: ', opt_thres)
     branch_discount = opt_thres * (-branch) / (tot)
-    print('branch_discount: ',branch_discount)
     opt_thres = opt_thres + branch_discount
     plt.clf()
     return opt_thres
