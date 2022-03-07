@@ -2,12 +2,10 @@ import torchvision
 import torchvision.transforms as transforms
 import torch
 import yaml
-from pytorch_metric_learning import distances, losses, miners, reducers, testers, reducers
-from pytorch_metric_learning.utils.accuracy_calculator import AccuracyCalculator
-from pytorch_metric_learning.utils.inference import InferenceModel, MatchFinder
-import faiss 
 import torch.nn as nn
 import os
+from paramiko import SSHClient
+from scp import SCPClient
 
 def config(str):
     f = open(str, 'r')
@@ -103,8 +101,6 @@ def get_dataset(cfg):
     return trainset, testset
 
 
-
-
 def get_dataloader(cfg, select="train", train=None,val=None, test=None):
 
     trainset, testset = get_dataset(cfg) 
@@ -193,3 +189,4 @@ class NN(nn.Module):
         dist = distance_matrix(x, self.train_pts) ** (1/self.p)
         labels = torch.argmin(dist, dim=1)
         return self.train_label[labels]
+
