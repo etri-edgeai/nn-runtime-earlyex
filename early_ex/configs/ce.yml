@@ -1,0 +1,112 @@
+---
+#### Basic Configuration ####
+backbone: &backbone resnet18
+dataset: &dataset cifar10
+num_class :  10
+img_size : 32
+
+#### Backbone Training Configuration ####
+backbone_train:
+  lr: 0.0001
+  device: cuda:0
+  batch_size: 128
+  workers: 0
+  epochs: 30
+  milestone:
+    - 5
+    - 10
+    - 15
+    - 20
+    - 25
+  gamma: 0.5
+
+set_gate:
+  gates:
+    - 4
+    - 8
+  thresholds:
+    - 0
+    - 0
+
+#### Branch Training Configuration ####
+branch_training:
+  epochs : 5
+  lr: 0.0001
+
+branch:
+  hidden: 32
+  channel: 32
+  feature: 32
+  size: 8
+  threshold: 0.16
+
+contra:
+  representation: 512
+  hidden: 64
+  projection: 16
+
+  
+branch_training:
+  epoch : 30
+  lr: 0.01
+
+#### Path Configuration ####
+path: 
+  root: &root ./
+  checkpoints: &checkpoints checkpoints/
+  backbone_folder: &backbone_folder backbone/
+  model_folder: &model_folder state_dicts/ 
+  confidence_folder: &confidence_folder confidence/
+  performance_folder: &performance_folder performance/
+  mode: &mode ce_
+
+combine_dir:
+  performance_dir:
+    - *root
+    - *checkpoints
+    - *performance_folder
+
+  dataset_dir: 
+    - *root
+    - *checkpoints
+    - data/
+    - *dataset
+    - /
+
+  backbone_dir:
+    - *root
+    - *checkpoints
+    - *backbone_folder
+
+  model_dir:
+    - *root
+    - *checkpoints
+    - *model_folder
+
+  csv_dir:
+    - *root
+    - *checkpoints  
+    - *confidence_folder
+
+combine_path:
+  backbone_path:
+    - *root
+    - *checkpoints
+    - *backbone_folder
+    - *backbone
+    - _
+    - *dataset
+    - _
+    - backbone.pth
+
+  model_path:
+    - *root
+    - *checkpoints
+    - *model_folder
+    - *mode
+    - *backbone
+    - _
+    - *dataset
+    - _
+    - model_best.pth
+

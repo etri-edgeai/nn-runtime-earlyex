@@ -1,0 +1,56 @@
+---
+#### Basic Configuration ####
+backbone: &backbone resnet18
+dataset: &dataset cifar10
+
+lr: 0.0001
+device: cuda:0
+num_class :  10
+batch_size : 512
+workers :    0
+img_size :   32
+
+#### Backbone Training Configuration ####
+backbone_training:
+  epochs : 50 
+  milestone:
+    - 10
+    - 20
+    - 30
+    - 40
+    - 50
+  gamma: 0.5
+
+
+
+#### Path Configuration ####
+path: 
+  root: &root ./
+  output: &outputs output/
+  checkpoints: &checkpoints checkpoints/
+  backbone_folder: &backbone_folder backbone/
+  model_folder: &model_folder state_dicts/ 
+  confidence_folder: &confidence_folder confidence/
+  performance_folder: &performance_folder performance/
+
+dataset_path: 
+  - *root
+  - *outputs
+  - data/
+  - *dataset
+  - /
+
+backbone_filepath:
+  - *root
+  - *outputs
+  - *backbone_folder
+  - *backbone
+  - _
+  - *dataset
+  - _
+  - backbone.pth
+
+backbone_path:
+  - *root
+  - *outputs
+  - *backbone_folder
