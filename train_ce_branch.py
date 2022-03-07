@@ -14,7 +14,7 @@ def main():
     model = DevourModel(cfg, N=cfg['num_exits'], backbone=backbone)
     trainer = DCEBranchTrainer(model, cfg)
     model = model.to(cfg['device'])
-
+    torch.cuda.synchronize()
     try:
         for epoch in range(10):
             trainer.branch_train(epoch)
@@ -26,7 +26,7 @@ def main():
     trainer.branch_test()
         
     model_scripted = torch.jit.script(model) # Export to TorchScript
-    model_scripted.save('./checkpoints/model_scripted.pt') # Save
+    model_scripted.save('./model.pt') # Save
 
 
 if __name__ == "__main__":

@@ -7,33 +7,28 @@ from early_ex.trainer.dme_branch import DMEBranchTrainer
 # from early_ex.trainer.ce_branch import DCEBranchTrainer
 from tqdm import tqdm
 
-print("Devour & Branch Trainer v0.9")
+def main():
+    print("Devour & Branch Trainer v0.9")
+    cfg = config("./early_ex/configs/base.yml")
+    backbone = get_backbone(cfg)
+    model = DevourModel(cfg, N=cfg['num_exits'], backbone=backbone)
+    self = DMEBranchTrainer(model, cfg)
+    model = model.to(cfg['device'])
+    torch.cuda.synchronize()
 
-cfg = config("./early_ex/configs/base.yml")
-backbone = get_backbone(cfg)
+    try:
+        for epoch in range(20): 
+            print("epoch: ",epoch)
+            self.metric_train()
+            # self.metric_valid(epoch)
+            self.metric_visualize()
+    except KeyboardInterrupt:
+        print("terminate train")
 
-model = DevourModel(cfg, N=cfg['num_exits'], backbone=backbone)
-self = DMEBranchTrainer(model, cfg)
+    self.metric_visualize()
+    self.metric_test()
+    model_scripted = torch.jit.script(model) # Export to TorchScript
+    model_scripted.save('./model.pt') # Save
 
-model = model.to(cfg['device'])
-
-try:
-    for epoch in range(20): 
-        print("epoch: ",epoch)
-        self.metric_train()
-        # self.metric_valid(epoch)
-        self.metric_visualize()
-except KeyboardInterrupt:
-    print("terminate train")
-
-self.metric_visualize()
-self.metric_test()
-
-model_scripted = torch.jit.script(model) # Export to TorchScript
-model_scripted.save('./checkpoints/model_scripted.pt') # Save
-
-
-
-
-# self.metric_cali()
-
+if __name__ == "__main__":
+    main()

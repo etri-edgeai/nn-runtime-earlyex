@@ -1,19 +1,12 @@
+import os
 import torch
-from tqdm import tqdm
+import torchvision
 from datetime import datetime
-from early_ex.utils import config, get_dataloader, get_dataset
-from early_ex.model.backbone import get_backbone
-from early_ex.trainer.backbone import BackboneTrainer
-from early_ex.model import Model
-import argparse 
-import sys
+from early_ex.utils import *
 
 def main():
-    print("Test backbone ")
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default = "./early_ex/configs/base.yml")
-    args = parser.parse_args()
-    cfg = config(args.config)
+    print("Standalone Test App for Early Exit")
+    cfg = config("./test.yml")
     trainset, testset = get_dataset(cfg)
 
     test_loader = torch.utils.data.DataLoader(
@@ -24,7 +17,7 @@ def main():
         pin_memory=False)
 
     try:
-        print("loading model for testing..../checkpoints/model_scripted.pt")
+        print("loading model for testing....")
         model = torch.jit.load('./checkpoints/model_scripted.pt')
     except RuntimeError as e:
         print(e)
@@ -32,27 +25,22 @@ def main():
         print(e)
         print(" file not found! Maybe try training it first?")
 
-
     model.eval()
-    tbar = tqdm(test_loader)
-    acc = 0 
-    total = 0
+    acc, total = 0, 0 
     device = cfg['test_device']
     model.to(device)
-
-    print(model)
-
+    start = datetime.now()
     with torch.no_grad():
-        for (i, data) in enumerate(tbar):
-            input = data[0].to(device)
-            label = data[1].to(device)
+        for i, (input, label) in enumerate(test_loader):
+            input = input.to(device)
+            label = label.to(device)
             total += input.shape[0]
             pred = model.forward(input)
             _ , pred = torch.max(pred, 1)
             acc += pred.eq(label).sum().item()
-            tbar.set_description("total: {}, correct:{}".format(total, acc))
-        print(print("accuracy: ", acc/ total))
-
+        print("accuracy: ", acc/ total)
+    date = datetime.now() - start
+    print("time elapsed: {}".format(date))
 if __name__ == "__main__":
 
     main()
