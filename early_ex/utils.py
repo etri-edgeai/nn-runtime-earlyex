@@ -1,11 +1,11 @@
+import torch
 import torchvision
 import torchvision.transforms as transforms
-import torch
 import yaml
 import torch.nn as nn
 import os
-from paramiko import SSHClient
-from scp import SCPClient
+# from paramiko import SSHClient
+# from scp import SCPClient
 
 def config(str):
     f = open(str, 'r')
