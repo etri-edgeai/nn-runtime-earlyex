@@ -238,7 +238,8 @@ class DMEBranchTrainer(Trainer):
             m.soft_scaled = torch.zeros(0)
             m.temperature.requires_grad = False
             if m.temperature < 0:
-                m.temperature = torch.nn.Parameter(torch.Tensor([1.0]))
+                m.temperature = torch.autograd.Variable(
+                    torch.Tensor([1.0]),requires_grad=True)
         with torch.no_grad():
             for i, (input,label) in enumerate(val_tbar):
                 input = input.to(self.device)
