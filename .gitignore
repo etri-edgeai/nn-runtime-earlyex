@@ -133,3 +133,5 @@ dmypy.json
 
 checkpoints
 dataset
+.vscode
+*.pt
