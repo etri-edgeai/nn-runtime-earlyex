@@ -17,7 +17,7 @@ import sys
 def main():
     print("Time performance test v0.5")
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default = "./configs/test.yml")
+    parser.add_argument('--config', type=str, default = "./early_ex/configs/base.yml")
     parser.add_argument('--threshold', type=float, default = 0.8)    
     args = parser.parse_args()
     cfg = config(args.config)
