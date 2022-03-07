@@ -282,10 +282,6 @@ def roc_curved2(output, labels, num_class, name):
     X = conf
 
     fpr, tpr, thresholds = roc_curve(y, X)
-    print("fpr: ",fpr)
-    print("tpr: ",tpr)
-    print("threshold:", thresholds)
-
     roc_auc = auc(fpr, tpr)
     plt.plot(
         fpr, 
