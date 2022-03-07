@@ -97,6 +97,7 @@ class DevourModel(Model):
                 self.exit_count[i] += 1
                 exact.exit = False
                 return val
+
         #for i in range(self.n):
         #    x = self.feats[i].forward(x)
         #    val = self.exactly[i].forward(x)
