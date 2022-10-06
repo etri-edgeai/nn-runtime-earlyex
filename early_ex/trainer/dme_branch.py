@@ -1,6 +1,7 @@
 import enum
 import torch
-from . import Trainer
+# from . import BackboneTrainer
+from early_ex.trainer import Trainer
 from tqdm import tqdm
 import torch.nn as nn
 import torch.nn.functional as F
@@ -68,13 +69,18 @@ class DMEBranchTrainer(Trainer):
         # self.criterion = losses.SupConLoss(temperature=0.1)
         # self.criterion = losses.TripletMarginLoss(margin=0.1)
         # self.criterion = losses.CentroidTripletLoss(margin=0.05)
-        self.criterion = BoneLoss()
+        self.bone = BoneLoss()
+        self.cenbone = BoneCenterLoss()
+        self.triplet = losses.TripletMarginLoss()
+        self.centriploss = losses.CentroidTripletLoss()
         self.ccriterion = nn.CrossEntropyLoss()
+        self.pal = Proxy_Anchor(nb_classes=cfg['num_class'], sz_embed=cfg['contra']['projection'])
         # self.miner = miners.UniformHistogramMiner()
-        # self.miner = miners.BatchEasyHardMiner(
-        #     pos_strategy=miners.BatchEasyHardMiner.EASY,
-        #     neg_strategy=miners.BatchEasyHardMiner.SEMIHARD,
-        # )
+        self.multisim= miners.MultiSimilarityMiner()
+        self.behm = miners.BatchEasyHardMiner(
+            pos_strategy=miners.BatchEasyHardMiner.EASY,
+            neg_strategy=miners.BatchEasyHardMiner.SEMIHARD,
+        )
         self.ece_loss = ECELoss()
         self.optimizer   = torch.optim.Adam(
             self.model.parameters(), lr = self.cfg['lr'])
@@ -89,6 +95,9 @@ class DMEBranchTrainer(Trainer):
 
         # for n, m in enumerate(self.model.exactly):
         #     m.nn = NN()
+
+
+
 
     def metric_train(self):
         for n, m in enumerate(self.model.exactly):
@@ -107,7 +116,7 @@ class DMEBranchTrainer(Trainer):
             pred = self.model.forward(input)
             for n, m in enumerate(self.model.exactly): 
                 m.temperature.requires_grad=False 
-                train_loss[n] = self.criterion(
+                train_loss[n] = self.bone(
                     m.proj, label, temperature = m.temperature)
                 # miner_output = self.miner(m.proj, label)
                 # train_loss[n] = self.criterion(m.proj, label,miner_output)
@@ -131,10 +140,85 @@ class DMEBranchTrainer(Trainer):
                 m.mean[y] = torch.mean(vect, dim=0)
                 m.std[y] = torch.std(vect, dim=0)
             
-            # X = F.normalize(m.mean.to(self.device), dim=1)
-            # Y = torch.linspace(0, self.num_class-1, self.num_class)
-            # m.nn.set(X, Y)
-            m.nn.train_pts = F.normalize(m.mean.to(self.device), dim=1)
+            X = F.normalize(m.mean.to(self.device), dim=1)
+            Y = torch.linspace(0, self.num_class-1, self.num_class)
+            m.nn.set(X, Y)
+            # m.nn.train_pts = F.normalize(m.mean.to(self.device), dim=1)
+
+
+    def metric_train2(self):
+        for n, m in enumerate(self.model.exactly):
+            m.cros_path = False
+            m.proj_path = True
+            m.near_path = False
+            m.points = torch.zeros(0, self.proj_size + 1)
+
+        train_tbar = tqdm(self.train_loader)
+
+        self.model.train()
+        for i, data in enumerate(train_tbar):
+            train_loss = torch.zeros([self.ex_num]).to(self.device)
+            input = data[0].to(self.device)
+            label = data[1].to(self.device)
+            pred = self.model.forward(input)
+            for n, m in enumerate(self.model.exactly): 
+              # train_loss[n] += self.cenbone(
+              #   embeddings = m.proj,
+              #   labels = label          
+              # )  
+              #train_loss[n] = self.cenbone(m.proj, label)
+              #indices = self.behm(m.proj, label)
+            #   train_loss[n] = self.triplet(m.proj, label, indices)
+              # logi = - m.nn.dist(m.proj)
+            #   soft = F.softmax(logi, dim=1)
+              # conf, pred = torch.max(soft, dim=1)
+              
+              train_loss[n] = self.bone(
+                  embeddings = m.proj, 
+                  labels = label, 
+                  temperature = None)
+
+              # train_loss[n] = self.pal(m.proj, label)
+
+
+              #for y in range(self.num_class):
+              #    vect = m.proj[label == y]
+              #    mean = torch.mean(vect, dim=0).view(1,-1)
+              #    std  = torch.std(vect, dim=0).view(1,-1)
+              #    labs = (torch.ones(1) * y)
+
+                  #print(mean.shape)
+                  #print(labs.shape)
+              #    train_loss[n] += self.bone(
+              #        m.proj, , ref_emb=mean, ref_labels=labs, temperature= std)
+              # m.temperature.requires_grad=False 
+              # train_loss[n] = self.criterion(
+              #     m.proj, label, temperature = m.temperature)
+              # miner_output = self.miner(m.proj, label)
+              # train_loss[n] = self.criterion(m.proj, label,miner_output)
+              embs = torch.cat((
+                  m.proj.detach().cpu(), 
+              label.view(-1,1).detach().cpu()),dim=1)
+              m.points = torch.cat((m.points, embs),dim=0)
+              
+            self.optimizer.zero_grad()
+            loss = torch.sum(train_loss)
+            loss.backward()
+            self.optimizer.step()
+
+        for n, m in enumerate(self.model.exactly):
+            m.std = torch.zeros(self.num_class, self.proj_size)
+            m.mean = torch.zeros(self.num_class, self.proj_size)
+
+            for y in range(self.num_class):
+                vect = m.points[m.points[:,-1] == y][:,:-1]
+                m.mean[y] = torch.mean(vect, dim=0)
+                m.std[y] = torch.std(vect, dim=0)
+            
+            X = F.normalize(m.mean.to(self.device), dim=1)
+            Y = torch.linspace(0, self.num_class-1, self.num_class)
+            m.nn.set(X, Y)
+            # m.nn.train_pts = F.normalize(m.mean.to(self.device), dim=1)
 
     def metric_visualize(self):
         total = 0
@@ -262,7 +346,7 @@ class DMEBranchTrainer(Trainer):
                 pred = pred.to(self.device)
                 acc += pred.eq(label).sum().item()
                 test_tbar.set_description("total: {}, correct:{}".format(total, acc))
-            print("accuracy: ", acc/ total)
+            print("accuracy: {:.2f}".format(acc/ total))
 
         print(self.model.exit_count)
 
@@ -303,6 +387,6 @@ class DMEBranchTrainer(Trainer):
                     pred = pred.to(self.device)
                     acc += pred.eq(label).sum().item()
                     test_tbar.set_description("total: {}, correct:{}".format(total, acc))
-                print("accuracy: ", acc/ total)
+                print("accuracy: {:.2f}".format(acc/ total))
 
             print(self.model.exit_count)

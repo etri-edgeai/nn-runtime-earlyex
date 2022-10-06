@@ -75,6 +75,7 @@ class DevourModel(Model):
             x = etc(x)
         x = self.tail_layer(x)
         self.exit_count[-1] += 1
+        self.tail_layer.exit = False
         return x  
 
     def devour(self, backbone, name='resnet'):
@@ -189,13 +190,14 @@ class DevourModel(Model):
         print('---------------------------------------------------')
         len(self.feats) , len(self.fetc)
         
+        # self.lastex = Branch(cfg=self.cfg, input = input)
+
         ##create tail layer
         print("creating tail layer")
         b, c, w, h = input.shape
         print("X. Input to Tail layer: ", input.shape)
         features = self.cfg['linear']['features']
         dropout = self.cfg['linear']['dropout']
-
         for m in self.tail_list:
             name = str(type(m).__name__)
             if "Dropout" in name:
@@ -203,6 +205,7 @@ class DevourModel(Model):
             if "Linear" in name:
                 features = m.in_features
                 break
+        
 
         self.tail_layer = nn.Sequential(
             nn.Conv2d(

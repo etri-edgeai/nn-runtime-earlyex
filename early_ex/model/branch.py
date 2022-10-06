@@ -51,9 +51,7 @@ class Branch(nn.Module):
         Y = torch.autograd.Variable(Y0, requires_grad=False)
 
         self.nn = NN(X=X, Y=Y, p=2)
-
         batch, channel, width, height = input.shape
-
         
         self.transform = nn.Sequential(
             nn.Conv2d(
@@ -68,20 +66,6 @@ class Branch(nn.Module):
             nn.ReLU()
         )
 
-        # self.transform = nn.Sequential(
-        #     nn.AdaptiveAvgPool2d((self.img_size, self.img_size)),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels=channel, 
-        #                 out_channels=self.chan_size, 
-        #                 kernel_size = 1, 
-        #                 bias = False
-        #                 ),
-        #     nn.ReLU(),
-        #     nn.Flatten(),
-        #     nn.Linear(self.flat_size, self.repr_size),
-        #     nn.Sigmoid(),
-        #     )
-        
         self.project = nn.Sequential(
             nn.Linear(self.repr_size, self.proj_size),
         )
@@ -91,34 +75,7 @@ class Branch(nn.Module):
         )
         
 
-    #def branch_init(self, input):
-    #    batch, channel, width, height = input.shape
-    #    print('feature map: ', input.shape)
-    #    self.branch_uninitialized = False
-    #    self.transform = nn.Sequential(
-    #        nn.Conv2d(in_channels=channel, 
-    #                    out_channels=self.chan_size, 
-    #                    kernel_size = 1, 
-    #                    bias = False
-    #                    ),
-    #        nn.ReLU(),
-    #        nn.AdaptiveAvgPool2d((self.img_size, self.img_size)),
-    #        nn.Flatten(),
-    #        nn.Linear(self.flat_size, self.repr_size),
-    #        nn.ReLU(),
-    #        )
-    #    self.project = nn.Sequential(
-    #        nn.Linear(self.repr_size, self.proj_size),
-    #    )
-    #
-    #    self.classifier = nn.Sequential(
-    #        nn.Linear(self.repr_size, self.num_class)
-    #    )
-
     def forward(self, x):
-        #if self.branch_uninitialized:
-        #    self.branch_init(x)
-
         self.repr = self.transform(x)
 
         if self.cros_path:

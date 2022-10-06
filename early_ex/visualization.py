@@ -227,9 +227,6 @@ def confused(output, labels, num_class, name):
         plt.savefig(name, bbox_inches='tight') 
         plt.clf()
 
-
-
-
 def roc_curved(output, labels, num_class, name):
     pred = np.argmax(output, axis=1)
     conf = np.amax(output, axis=1)
@@ -335,7 +332,11 @@ def roc_curved3(output, labels, num_class, name, branch=0, total=4):
     # opt_thres = thresholds[np.argmax(gmeans)]
     opt_thres = thresholds[np.argmax(np.where(fpr<=0.05))]
     tot = total - 1
-    branch_discount = opt_thres * (-branch) / (tot)
+    # print("branch: ",branch*branch)
+    # print("tot: ",tot*tot)
+    # print("asdf: ",-(branch*branch) / (tot*tot))
+    branch_discount = opt_thres * (-(branch*branch)) / (tot*tot)
+    print("branch discount: ",branch_discount)    
     opt_thres = opt_thres + branch_discount
     plt.clf()
     return opt_thres

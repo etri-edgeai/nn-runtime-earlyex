@@ -25,6 +25,7 @@ def main():
     trainer = BackboneTrainer(model, cfg)
     trainer.trainset, trainer.testset = get_dataset(cfg)
 
+
     trainer.test_loader = torch.utils.data.DataLoader(
         trainer.testset,  
         batch_size= 1, 
@@ -32,6 +33,7 @@ def main():
         num_workers=1,
         pin_memory=True)
 
+    trainer.device = 'cuda:0'
     try:
         print("loading pre-trained backbone for testing...",cfg['backbone_path'])
         backbone.load_state_dict(

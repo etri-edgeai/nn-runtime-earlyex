@@ -25,7 +25,7 @@ backbone_training:
   gamma: 0.5
 
 linear:
-  features: 128
+  features: 512
   dropout: 0.5
 
 #### Branch Training Configuration ####
@@ -34,11 +34,11 @@ branch_training:
   lr: 0.0001
 
 branch:
-  channel: 32
-  size: 16
+  channel: 64128
+  size: 32
 
 contra:
-  representation: 64
+  representation: 128
   projection: 32
 
   

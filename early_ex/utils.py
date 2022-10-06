@@ -171,6 +171,7 @@ class NN(nn.Module):
         super(NN, self).__init__()
         self.p = p
         self.set(X, Y)
+
     def set(self, X, Y):
         self.train_pts = torch.autograd.Variable(X, requires_grad=False)
         self.train_label = torch.autograd.Variable(Y, requires_grad=False)
@@ -189,4 +190,6 @@ class NN(nn.Module):
         dist = distance_matrix(x, self.train_pts) ** (1/self.p)
         labels = torch.argmin(dist, dim=1)
         return self.train_label[labels]
+
+
 

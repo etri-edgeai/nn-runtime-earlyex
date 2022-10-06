@@ -16,7 +16,7 @@ def main():
     model = model.to(cfg['device'])
     torch.cuda.synchronize()
     try:
-        for epoch in range(10):
+        for epoch in range(60):
             trainer.branch_train(epoch)
             trainer.scheduler.step()
             trainer.branch_visualize(epoch)
@@ -27,7 +27,9 @@ def main():
         
     model_scripted = torch.jit.script(model) # Export to TorchScript
     model_scripted.save('./model.pt') # Save
-
+    
+    model_scripted = torch.jit.script(backbone)
+    model_scripted.save('./backbone.pt')
 
 if __name__ == "__main__":
     main()

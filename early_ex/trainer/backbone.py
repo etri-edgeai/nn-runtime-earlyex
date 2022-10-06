@@ -7,7 +7,7 @@ import yaml
 import os
 from tqdm import tqdm
 from . import Trainer
-
+from early_ex.utils import *
 class BackboneTrainer(Trainer):
 
     def __init__(self, model, cfg) -> None:
@@ -19,6 +19,21 @@ class BackboneTrainer(Trainer):
         print('scheduler = multistep LR')
         self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=self.cfg['backbone_training']['milestone'], gamma=0.5)
 
+        self.trainset, self.testset = get_dataset(cfg)
+
+        self.train_loader = torch.utils.data.DataLoader(
+            self.trainset, 
+            batch_size = cfg['batch_size'], 
+            shuffle=True,  
+            num_workers = cfg['workers'],
+            pin_memory = True) 
+
+        self.val_loader = torch.utils.data.DataLoader(
+            self.testset, 
+            batch_size = cfg['batch_size'], 
+            shuffle=False,  
+            num_workers = cfg['workers'],
+            pin_memory = True) 
 
     def backbone_train(self, epoch):
         print("Trainer backbone model...")

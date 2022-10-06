@@ -1,9 +1,9 @@
 import torch
-from . import Trainer
 from tqdm import tqdm
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+from early_ex.trainer import Trainer
 from early_ex import visualization
 from early_ex.utils import *
 from early_ex.loss import *
@@ -89,8 +89,7 @@ class DCEBranchTrainer(Trainer):
 
             pred = self.model.forward(input)
 
-            for n in range(ex_num):
-                m = self.model.exactly[n]
+            for n, m in enumerate(self.model.exactly):
                 losses[n] = self.criterion(m.logits, label)  
             losses[ex_num] = self.criterion(pred, label)
             self.optimizer.zero_grad()
@@ -150,7 +149,9 @@ class DCEBranchTrainer(Trainer):
                     loss.backward(retain_graph = True)
                     return loss
                 optimizer.step(eval)
-            
+
+                print(self.criterion(m.logitss, labels.long()))
+                print(self.criterion(m.scaled, labels.long()))            
 
                 labels_np = labels.numpy()
                 logits_np = m.logitss.numpy()
