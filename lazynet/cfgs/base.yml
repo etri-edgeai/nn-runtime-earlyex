@@ -1,0 +1,55 @@
+---
+#### Basic Configuration ####
+project_name: 'LazyNet'
+
+### HW related
+num_gpus: 1
+device: cuda:0
+local_rank: 0
+distributed: False
+no_cuda: False
+
+### Data Related
+dataset: cifar100
+num_class: 100
+workers: 32
+batch_size: 128
+img_size: 128
+
+### Model related
+backbone: efficientnet_b4
+lazy_num: 3
+
+## Small image ratio
+compress_ratio: 8
+
+### Spatial 
+# spatial:
+#   inter_ch: 64
+#   inter_fc: 128
+
+### Skips
+skips:
+  inter_ch: 64
+  img_size: 32
+
+
+### Feature Fusion
+ffm:
+  inter_ch: 64
+
+
+### Training Related
+epochs: 120
+lr: 0.0001
+momentum: 0.9
+weight-decay: 0.00001
+warmup-iters: 0
+warmup-factor: 1.0
+warmup-method: linear
+log_iter: 5
+val_epoch: 5
+save_epoch: 5
+    
+save-dir: './checkpoints/'
+data-dir: '/data/jyp/cifar/'
