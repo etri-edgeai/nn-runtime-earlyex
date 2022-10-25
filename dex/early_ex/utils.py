@@ -1,3 +1,4 @@
+"""Utilities folder"""
 import torch
 import torchvision
 import torchvision.transforms as transforms
@@ -8,6 +9,9 @@ import os
 # from scp import SCPClient
 
 def config(str):
+    """read Yaml config files
+    yaml can contain directories
+    """
     f = open(str, 'r')
     cfg = yaml.safe_load(f)
 
@@ -24,6 +28,7 @@ def config(str):
     return cfg
 
 def get_dataset(cfg):
+    """Fetch dataset from parameter"""
     if cfg['dataset'] == 'cifar10':
         transform_train = transforms.Compose([
             transforms.Resize((cfg['img_size'], cfg['img_size'])),
@@ -102,10 +107,8 @@ def get_dataset(cfg):
 
 
 def get_dataloader(cfg, select="train", train=None,val=None, test=None):
-
+    """get dataloader"""
     trainset, testset = get_dataset(cfg) 
-
-
     train_loader = torch.utils.data.DataLoader(
         trainset, 
         batch_size= cfg['batch_size'], 
@@ -128,13 +131,7 @@ def get_dataloader(cfg, select="train", train=None,val=None, test=None):
         pin_memory=True)
     
     return train_loader, val_loader, test_loader
-
-
-
 ################################################################################
-
-
-
 class AverageMeter(object):
     """Computes and stores the average and current value"""
     def __init__(self):
@@ -156,6 +153,7 @@ class AverageMeter(object):
 
 @torch.jit.script
 def distance_matrix(x, y): #pairwise distance of vectors
+    """Pairwise distance of vectors"""
     # y = x if type(y) == type(None) else y
     p = 2
     n, d = x.size(0), x.size(1)
@@ -166,30 +164,28 @@ def distance_matrix(x, y): #pairwise distance of vectors
     return dist
 
 class NN(nn.Module):
-
+    """Nearest Neighbor"""
     def __init__(self, X = None, Y = None, p = 2):
+        """init"""
         super(NN, self).__init__()
         self.p = p
         self.set(X, Y)
 
     def set(self, X, Y):
+        """get set"""
         self.train_pts = torch.autograd.Variable(X, requires_grad=False)
         self.train_label = torch.autograd.Variable(Y, requires_grad=False)
 
     def dist(self, x):
+        """distance"""
         return distance_matrix(x, self.train_pts) ** (1/2)
 
     def forward(self, x):
+        """forward"""
         return self.predict(x)
 
     def predict(self, x):
-        #if type(self.train_pts) == type(None) or type(self.train_label) == type(None):
-        #    name = self.__class__.__name__
-        #    raise RuntimeError(f"{name} wasn't trained. Need to execute {name}.train() first")
-        
+        """Distance"""
         dist = distance_matrix(x, self.train_pts) ** (1/self.p)
         labels = torch.argmin(dist, dim=1)
         return self.train_label[labels]
-
-
-
