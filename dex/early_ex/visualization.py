@@ -1,3 +1,4 @@
+"""Visualization python file"""
 import numpy as np
 #import matplotlib as mpl
 #mpl.use('Agg')
@@ -6,7 +7,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.special import softmax
 import seaborn as sn
-from sklearn.metrics import roc_curve, roc_auc_score, confusion_matrix, auc, ConfusionMatrixDisplay
+from sklearn.metrics import roc_curve, roc_auc_score, confusion_matrix, auc
+from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.linear_model import RidgeClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
@@ -14,8 +16,9 @@ from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
 import matplotlib.pyplot as plt
 
 class CELoss(object):
+    """Cross Entropy Loss"""
     def compute_bin_boundaries(self, probabilities = np.array([])):
-        #uniform bin spacing
+        """compute uniform bin spacing"""
         if probabilities.size == 0:
             bin_boundaries = np.linspace(0, 1, self.n_bins + 1)
             self.bin_lowers = bin_boundaries[:-1]
@@ -29,13 +32,15 @@ class CELoss(object):
             probabilities_sort = np.sort(probabilities)  
 
             for i in range(0,self.n_bins):
-                bin_boundaries = np.append(bin_boundaries,probabilities_sort[i*bin_n])
+                bin_boundaries = np.append(bin_boundaries,
+                    probabilities_sort[i*bin_n])
             bin_boundaries = np.append(bin_boundaries,1.0)
 
             self.bin_lowers = bin_boundaries[:-1]
             self.bin_uppers = bin_boundaries[1:]
 
     def get_probabilities(self, output, labels, logits):
+        """get probabilities"""
         #If not probabilities apply softmax!
         if logits:
             self.probabilities = softmax(output, axis=1)
@@ -48,6 +53,7 @@ class CELoss(object):
         self.accuracies = np.equal(self.predictions,labels)
 
     def binary_matrices(self):
+        """compute binary matrices"""
         idx = np.arange(self.n_data)
         #make matrices of zeros
         pred_matrix = np.zeros([self.n_data,self.n_class])
@@ -59,6 +65,7 @@ class CELoss(object):
         self.acc_matrix = np.equal(pred_matrix, label_matrix)
 
     def compute_bins(self, index = None):
+        """compute bins"""
         self.bin_prop = np.zeros(self.n_bins)
         self.bin_acc = np.zeros(self.n_bins)
         self.bin_conf = np.zeros(self.n_bins)
@@ -71,10 +78,12 @@ class CELoss(object):
             confidences = self.probabilities[:,index]
             accuracies = self.acc_matrix[:,index]
 
-
-        for i, (bin_lower, bin_upper) in enumerate(zip(self.bin_lowers, self.bin_uppers)):
+        for i, (bin_lower, bin_upper) in enumerate( 
+                zip(self.bin_lowers, self.bin_uppers)):
             # Calculated |confidence - accuracy| in each bin
-            in_bin = np.greater(confidences,bin_lower.item()) * np.less_equal(confidences,bin_upper.item())
+            greater = np.greater(confidences,bin_lower.item())
+            lessequal = np.less_equal(confidences, bin_upper.item())
+            in_bin = greater * lessequal
             self.bin_prop[i] = np.mean(in_bin)
 
             if self.bin_prop[i].item() > 0:
@@ -83,7 +92,9 @@ class CELoss(object):
                 self.bin_score[i] = np.abs(self.bin_conf[i] - self.bin_acc[i])
 
 class MaxProbCELoss(CELoss):
+    """Mxax Probability Crossentropy loss"""
     def loss(self, output, labels, n_bins = 15, logits = True):
+        """Calclate loss"""
         self.n_bins = n_bins
         super().compute_bin_boundaries()
         super().get_probabilities(output, labels, logits)
@@ -91,25 +102,41 @@ class MaxProbCELoss(CELoss):
 
 #http://people.cs.pitt.edu/~milos/research/AAAI_Calibration.pdf
 class ECELoss(MaxProbCELoss):
+    """Expected Cross Entropy loss"""
+
     def loss(self, output, labels, n_bins = 15, logits = True):
+        """get loss"""
+
         super().loss(output, labels, n_bins, logits)
         return np.dot(self.bin_prop,self.bin_score)
 
 class MCELoss(MaxProbCELoss):
+    """Mxax Probability Cross entropy loss"""
+
     def loss(self, output, labels, n_bins = 15, logits = True):
+        """Calculate loss"""
         super().loss(output, labels, n_bins, logits)
         return np.max(self.bin_score)
 
 #https://arxiv.org/abs/1905.11001
-#Overconfidence Loss (Good in high risk applications where confident but wrong predictions can be especially harmful)
 class OELoss(MaxProbCELoss):
+    """OELOSS"""
     def loss(self, output, labels, n_bins = 15, logits = True):
+        """Calculate Loss"""
         super().loss(output, labels, n_bins, logits)
-        return np.dot(self.bin_prop,self.bin_conf * np.maximum(self.bin_conf-self.bin_acc,np.zeros(self.n_bins)))
+        return np.dot(
+            self.bin_prop, 
+            self.bin_conf * np.maximum(
+                self.bin_conf-self.bin_acc,
+                np.zeros(self.n_bins)
+                )
+            )
 
 #https://arxiv.org/abs/1904.01685
 class SCELoss(CELoss):
+    """SCELOSS"""
     def loss(self, output, labels, n_bins = 15, logits = True):
+        """Calculate Loss"""
         sce = 0.0
         self.n_bins = n_bins
         self.n_data = len(output)
@@ -126,7 +153,10 @@ class SCELoss(CELoss):
         return sce/self.n_class
 
 class TACELoss(CELoss):
-    def loss(self, output, labels, threshold = 0.01, n_bins = 15, logits = True):
+    """TACELoss"""
+    def loss(self, output, labels, threshold = 0.01, 
+        n_bins = 15, logits = True):
+        """Calculate loss"""
         tace = 0.0
         self.n_bins = n_bins
         self.n_data = len(output)
@@ -145,11 +175,15 @@ class TACELoss(CELoss):
 
 #create TACELoss with threshold fixed at 0
 class ACELoss(TACELoss):
+    """ACELoss"""
     def loss(self, output, labels, n_bins = 15, logits = True):
+        """ACELoss"""
         return super().loss(output, labels, 0.0 , n_bins, logits)
 
 class ConfidenceHistogram(MaxProbCELoss):
+    """Confidence Histogram"""
     def plot(self, output, labels, n_bins = 20, logits = True, title = None):
+        """Plot Histogram"""
         super().loss(output, labels, n_bins, logits)
         #scale each datapoint
         n = len(labels)
@@ -160,12 +194,17 @@ class ConfidenceHistogram(MaxProbCELoss):
         plt.figure(figsize=(3,3))
         plt.xlim(0,1)
         plt.ylim(0,1)
-        plt.xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], ['0.0', '0.2', '0.4', '0.6', '0.8', '1.0'])
-        plt.yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], ['0.0', '0.2', '0.4', '0.6', '0.8', '1.0'])
+        plt.xticks(
+            [0.0, 0.2, 0.4, 0.6, 0.8, 1.0], 
+            ['0.0', '0.2', '0.4', '0.6', '0.8', '1.0'])
+        plt.yticks(
+            [0.0, 0.2, 0.4, 0.6, 0.8, 1.0], 
+            ['0.0', '0.2', '0.4', '0.6', '0.8', '1.0'])
         #plot grid
         plt.grid(color='tab:grey', linestyle=(0, (1, 5)), linewidth=1,zorder=0)    
         #plot histogram
-        plt.hist(self.confidences,n_bins,weights = w,color='b',range=(0.0,1.0),edgecolor = 'k')
+        plt.hist(self.confidences, n_bins, weights = w,
+            color='b', range=(0.0,1.0), edgecolor = 'k')
 
         #plot vertical dashed lines
         acc = np.mean(self.accuracies)
@@ -187,7 +226,9 @@ class ConfidenceHistogram(MaxProbCELoss):
         return plt
 
 class ReliabilityDiagram(MaxProbCELoss):
+    """Reliability Diagram"""
     def plot(self, output, labels, n_bins = 10, logits = True, title = None):
+        """Plot"""
         super().loss(output, labels, n_bins, logits)
 
         #computations
@@ -204,8 +245,11 @@ class ReliabilityDiagram(MaxProbCELoss):
         #plot grid
         plt.grid(color='tab:grey', linestyle=(0, (1, 5)), linewidth=1,zorder=0)
         #plot bars and identity line
-        plt.bar(x, self.bin_acc, color = 'b', width=delta,align='edge', edgecolor = 'k',label='Outputs',zorder=5)
-        plt.bar(x, error, bottom=np.minimum(self.bin_acc,mid), color = 'mistyrose', alpha=0.5, width=delta,align='edge',edgecolor = 'r',hatch='/',label='Gap',zorder=10)
+        plt.bar(x, self.bin_acc, color = 'b',
+            width=delta,align='edge', edgecolor = 'k',label='Outputs',zorder=5)
+        plt.bar(x, error, bottom=np.minimum(self.bin_acc,mid),
+            color = 'mistyrose', alpha=0.5, width=delta,
+            align='edge',edgecolor = 'r',hatch='/',label='Gap',zorder=10)
         ident = [0.0, 1.0]
         plt.plot(ident,ident,linestyle='--',color='tab:grey',zorder=15)
         #labels and legend
@@ -220,14 +264,16 @@ class ReliabilityDiagram(MaxProbCELoss):
 
 
 def confused(output, labels, num_class, name):
-        pred = np.argmax(output, axis=1)
-        cfm = confusion_matrix(labels, pred)
-        cfmd = ConfusionMatrixDisplay(confusion_matrix=cfm)
-        cfmd.plot()
-        plt.savefig(name, bbox_inches='tight') 
-        plt.clf()
+    """Confused"""
+    pred = np.argmax(output, axis=1)
+    cfm = confusion_matrix(labels, pred)
+    cfmd = ConfusionMatrixDisplay(confusion_matrix=cfm)
+    cfmd.plot()
+    plt.savefig(name, bbox_inches='tight') 
+    plt.clf()
 
 def roc_curved(output, labels, num_class, name):
+    """Roc Curve"""
     pred = np.argmax(output, axis=1)
     conf = np.amax(output, axis=1)
     p = []
@@ -271,6 +317,7 @@ def roc_curved(output, labels, num_class, name):
     return np.amax(opt_thres)
 
 def roc_curved2(output, labels, num_class, name):
+    """RocCuve"""
     pred = np.argmax(output, axis=1)
     conf = np.amax(output, axis=1)
     p = []
@@ -302,6 +349,7 @@ def roc_curved2(output, labels, num_class, name):
     return opt_thres
 
 def roc_curved3(output, labels, num_class, name, branch=0, total=4):
+    """RocCurved"""
     pred = np.argmax(output, axis=1)
     conf = np.amax(output, axis=1)
     p = []
