@@ -6,7 +6,6 @@ from early_ex.model.devour import DevourModel
 from early_ex.model.backbone import get_backbone
 from early_ex.trainer.dme_branch import DMEBranchTrainer
 from early_ex.trainer.backbone import BackboneTrainer
-# from early_ex.trainer.ce_branch import DCEBranchTrainer
 from tqdm import tqdm
 
 def main():
