@@ -1,3 +1,4 @@
+"""Train DEX based main function"""
 import yaml
 import argparse
 from early_ex.utils import *
@@ -9,6 +10,8 @@ from early_ex.trainer.backbone import BackboneTrainer
 from tqdm import tqdm
 
 def main():
+    """Train DEX main function"""
+
     print("Devour & Branch Trainer v0.9")
     cfg = config("./early_ex/configs/base.yml")
     backbone = get_backbone(cfg)
