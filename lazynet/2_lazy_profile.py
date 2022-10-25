@@ -23,7 +23,7 @@ def parse_args():
     """Argument Parser function"""
     parser = ArgumentParser(
         description='convertion to onnx, tf, tflite')
-    parser.add_argument('-c', type=str, default="./cfgs/c10/1-e0.yml",
+    parser.add_argument('-c', type=str, default="./cfgs/base.yml",
                         help='model name (default: efficientnet-b0)')
     return parser.parse_args()
 
