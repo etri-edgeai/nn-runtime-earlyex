@@ -1,6 +1,7 @@
 ---
 #### Basic Configuration ####
 project_name: 'LazyNet'
+mode: lazy
 
 ### HW related
 num_gpus: 1
@@ -17,7 +18,7 @@ batch_size: 128
 img_size: 128
 
 ### Model related
-backbone: efficientnet_b4
+backbone: efficientnet_b0
 lazy_num: 3
 
 ## Small image ratio
