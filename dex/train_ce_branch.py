@@ -1,3 +1,4 @@
+"""Train Cross entropy branch main function"""
 import yaml
 import argparse
 from early_ex.utils import *
@@ -6,8 +7,8 @@ from early_ex.model.backbone import get_backbone
 from early_ex.trainer.dce_branch import DCEBranchTrainer
 
 def main():
+    """Train backbone main function"""
     print("Devour & Branch Trainer v0.9")
-
     cfg = config("./early_ex/configs/base.yml")
     backbone = get_backbone(cfg)
 
