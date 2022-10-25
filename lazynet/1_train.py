@@ -1,3 +1,4 @@
+"""Trainer function used to implement LazyNet function"""
 import os
 from argparse import ArgumentParser
 import torch
@@ -18,7 +19,7 @@ def parse_args():
 class Trainer():
     """Trainer Class containing train, validation, calibration"""
     def __init__(self, cfg):
-        # Init config
+        """Init config"""
         self.cfg = cfg
         self.device = torch.device(cfg['device'])
         
@@ -40,6 +41,7 @@ class Trainer():
         self.best_pred = 0
 
     def train(self):
+        """Train function"""
         self.model.train()
         # Start Training
         for e in range(1, self.cfg['epochs']+1):
@@ -78,6 +80,7 @@ class Trainer():
                 save_checkpoint(self.model, self.cfg, e)
 
     def valid(self, epoch=0):
+        """Validation function for testing LazyNet"""
         self.model.eval()
         pbar = tqdm(self.val_loader)
         # Start validation
@@ -106,7 +109,7 @@ class Trainer():
             
 
 def main():
-    """Main function"""
+    """Main function for trainer"""
     args = parse_args()
     cfg = read_yaml(args.c)
     trainer = Trainer(cfg)
@@ -117,6 +120,7 @@ def main():
         save_checkpoint(trainer.model, cfg, 0)
 
 if __name__ == '__main__':
+    """Main function"""
     torch.cuda.empty_cache()
     main()
 
