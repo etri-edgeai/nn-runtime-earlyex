@@ -1,3 +1,4 @@
+"""Metric trainer"""
 import enum
 import torch
 # from . import BackboneTrainer
@@ -8,15 +9,17 @@ import torch.nn.functional as F
 from early_ex import visualization
 from early_ex.utils import *
 from early_ex.loss import *
+import pytorch_metric_learning as pml
 import pytorch_metric_learning.utils.logging_presets as logging_presets
 from pytorch_metric_learning import losses, miners, samplers, testers, trainers
 from pytorch_metric_learning.utils import common_functions
 from pytorch_metric_learning.utils.accuracy_calculator import AccuracyCalculator
 
 class DMEBranchTrainer(Trainer):
+    """Metric trainer using devour"""
     def __init__(self, model, cfg) -> None:
+        """init function"""
         super().__init__(model, cfg)
-
         print('criterion: Triplet Margin loss')
         print('optimizer: Adam, lr: ', self.cfg['lr'])
         print('scheduler = multistep LR')
@@ -74,7 +77,8 @@ class DMEBranchTrainer(Trainer):
         self.triplet = losses.TripletMarginLoss()
         self.centriploss = losses.CentroidTripletLoss()
         self.ccriterion = nn.CrossEntropyLoss()
-        self.pal = Proxy_Anchor(nb_classes=cfg['num_class'], sz_embed=cfg['contra']['projection'])
+        self.pal = Proxy_Anchor(
+            nb_classes=cfg['num_class'], sz_embed=cfg['contra']['projection'])
         # self.miner = miners.UniformHistogramMiner()
         self.multisim= miners.MultiSimilarityMiner()
         self.behm = miners.BatchEasyHardMiner(
@@ -96,10 +100,8 @@ class DMEBranchTrainer(Trainer):
         # for n, m in enumerate(self.model.exactly):
         #     m.nn = NN()
 
-
-
-
     def metric_train(self):
+        """Metric train"""
         for n, m in enumerate(self.model.exactly):
             m.cros_path = False
             m.proj_path = True
@@ -147,6 +149,7 @@ class DMEBranchTrainer(Trainer):
 
 
     def metric_train2(self):
+        """Train metric classifiers"""
         for n, m in enumerate(self.model.exactly):
             m.cros_path = False
             m.proj_path = True
@@ -190,7 +193,7 @@ class DMEBranchTrainer(Trainer):
                   #print(mean.shape)
                   #print(labs.shape)
               #    train_loss[n] += self.bone(
-              #        m.proj, , ref_emb=mean, ref_labels=labs, temperature= std)
+              #        m.proj, ref_emb=mean, ref_labels=labs, temperature= std)
               # m.temperature.requires_grad=False 
               # train_loss[n] = self.criterion(
               #     m.proj, label, temperature = m.temperature)
@@ -221,6 +224,7 @@ class DMEBranchTrainer(Trainer):
             # m.nn.train_pts = F.normalize(m.mean.to(self.device), dim=1)
 
     def metric_visualize(self):
+        """visalize metric"""
         total = 0
         self.model.eval()
         val_tbar = tqdm(self.val_loader)
@@ -253,7 +257,8 @@ class DMEBranchTrainer(Trainer):
                     log = F.softmax(logits, dim=1)
                     conf, pred = torch.max(log, dim=1)
 
-                    m.logits = torch.cat((m.logits, logits.detach().cpu()), dim=0)
+                    m.logits = torch.cat(
+                        (m.logits, logits.detach().cpu()), dim=0)
                     pred = pred.detach().cpu()
                     m.corrects += pred.eq(label).sum().item()
 
@@ -262,7 +267,8 @@ class DMEBranchTrainer(Trainer):
                 print("Output acc, temperature: {:.4f}, {:.4f}".format(
                     acc, m.temperature.item()))
                 m.temperature.requires_grad = True
-                optimizer = torch.optim.LBFGS([m.temperature],lr=0.005, max_iter=100)
+                optimizer = torch.optim.LBFGS(
+                    [m.temperature],lr=0.005, max_iter=100)
                 def eval():
                     optimizer.zero_grad()
                     m.scaled = torch.div(m.logits, m.temperature.cpu())
@@ -321,6 +327,7 @@ class DMEBranchTrainer(Trainer):
 
 
     def metric_test(self):
+        """test metric"""
         self.model.eval()
         acc , total = 0 , 0
         test_tbar = tqdm(self.test_loader)
@@ -345,15 +352,15 @@ class DMEBranchTrainer(Trainer):
                 _ , pred = torch.max(pred, 1)
                 pred = pred.to(self.device)
                 acc += pred.eq(label).sum().item()
-                test_tbar.set_description("total: {}, correct:{}".format(total, acc))
+                test_tbar.set_description(
+                    "total: {}, correct:{}".format(total, acc))
             print("accuracy: {:.2f}".format(acc/ total))
 
         print(self.model.exit_count)
 
     def metric_test2(self):
-        self.model.eval()
-
-        
+        """test metric"""
+        self.model.eval()        
         self.device = self.cfg['test_device']
 
         self.model.to(self.device)
@@ -373,7 +380,8 @@ class DMEBranchTrainer(Trainer):
                 m.threshold = orig[n]
                 m.threshold += mm
             
-            self.model.exit_count = torch.zeros(self.model.n+1, dtype=torch.int)
+            self.model.exit_count = torch.zeros(
+                self.model.n+1, dtype=torch.int)
             self.model.exactly[-1].threshold = 0
             test_tbar = tqdm(self.test_loader)
 
@@ -386,7 +394,8 @@ class DMEBranchTrainer(Trainer):
                     _ , pred = torch.max(pred, 1)
                     pred = pred.to(self.device)
                     acc += pred.eq(label).sum().item()
-                    test_tbar.set_description("total: {}, correct:{}".format(total, acc))
+                    test_tbar.set_description(
+                        "total: {}, correct:{}".format(total, acc))
                 print("accuracy: {:.2f}".format(acc/ total))
 
             print(self.model.exit_count)
