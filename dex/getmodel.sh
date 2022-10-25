@@ -1,1 +1,0 @@
-scp jyp@129.254.187.160:/home/jyp/code/lazy/nn-runtime-earlyex/model.pt ./
