@@ -25,6 +25,15 @@ coco_dataset:
   train_ids: '/data/jyp/coco/train.idx'
   test_ids: '/data/jyp/coco/test.idx'
 
+shapenet:
+  name: shapenet
+  obj:      '/data/jyp/farmbot.ai/2.shapenet/shapenetsem/model_obj/models/'
+  binvox:   '/data/jyp/farmbot.ai/2.shapenet/shapenetsem/model_binvox/models-binvox-solid/'
+  screen:   '/data/jyp/farmbot.ai/2.shapenet/shapenetsem/model_screen/screenshots/'
+  texture:  '/data/jyp/farmbot.ai/2.shapenet/shapenetsem/model_texture/textures/'
+  metadata: '/data/jyp/farmbot.ai/2.shapenet/shapenetsem/metadata.csv'
+  new_meta: '/data/jyp/farmbot.ai/2.shapenet/shapenetsem/metadata_processed.csv'
+  
 backbone_out: 1024
 base_channels: 32
 vector_size : 1024
