@@ -98,7 +98,8 @@ class ShapeNetRenderedDataset(Dataset):
         # Transform Image and Mask       
         img_transforms = torchvision.transforms.Compose([
             torchvision.transforms.ToTensor(),
-            torchvision.transforms.Resize((self.img_size, self.img_size)),
+            torchvision.transforms.Resize(
+                (self.img_size, self.img_size), antialias=True),
             torchvision.transforms.Normalize(
                 mean=[0.485, 0.456, 0.406],
                 std=[0.229, 0.224, 0.225]),
@@ -108,7 +109,8 @@ class ShapeNetRenderedDataset(Dataset):
         # Transform Segmentation Mask
         mask_transforms = torchvision.transforms.Compose([
             torchvision.transforms.ToTensor(),
-            torchvision.transforms.Resize((self.img_size, self.img_size))])
+            torchvision.transforms.Resize((self.img_size, self.img_size)
+                                          ,antialias=True)])
         mask = mask_transforms(seg)
         min_value = mask.min().item()
         max_value = mask.max().item()
