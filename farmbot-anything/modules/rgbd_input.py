@@ -17,9 +17,6 @@ class RGBDInput(nn.Module):
     def __init__(self, cfg):
         super(RGBDInput, self).__init__()
         self.cfg = cfg
-        self.img_size = cfg['img_size']
-        self.batch_size = cfg['batch_size']
-        self.num_class = 49
     
         self.rgbd = nn.Sequential(
             CBRelu(4, 64, 7, 2, 3),
@@ -36,9 +33,6 @@ class RGBDInputModule(nn.Module):
     def __init__(self, cfg):
         super(RGBDInputModule, self).__init__()
         self.cfg = cfg
-        self.img_size = cfg['img_size']
-        self.batch_size = cfg['batch_size']
-        self.num_class = 49
     
         self.rgbd = nn.Sequential(
             CBRelu(4, 64, 7, 2, 3),
