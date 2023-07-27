@@ -52,8 +52,9 @@ class ShapeNetRenderedDataset(Dataset):
         self.root       = cfg['0_dataset_dir']
         
         # Load Dataset
-        path = cfg['0_train_json'] \
-            if dataset_type == "train" else cfg['0_test_json']
+        path = cfg['0_test_json'] \
+            if dataset_type == "test" or dataset_type == "val"\
+                  else cfg['0_train_json']
         self.dataset = json.load(open(path, 'r'))    
 
     def __len__(self):
