@@ -24,7 +24,7 @@ from pytorch3d.renderer import (
     SoftSilhouetteShader
 )
 from tqdm import tqdm
-
+from pytorch3d.ops import sample_points_from_meshes
 from PIL import Image
 import json
 # from pytorch3d.ops import get_bounding_boxes
@@ -66,16 +66,13 @@ for index in tqdm(range(total_length)):
     item = df.iloc[index]
     img_id = item['fullId'][4:]
     category = item['category']
-    # print(item)
 
-    # Set paths for obj, mtl and texture files
+    # Load obj file
     obj_path = os.path.join(cfg['shapenet']['obj'], img_id) + '.obj'
-
     mesh = p3d.io.load_objs_as_meshes([obj_path], device=device)
     if isinstance(mesh.textures, TexturesUV):
         mesh
     else:
-        # print("The mesh does not have texture.")
         verts, faces, aux = load_obj(obj_path, load_textures=True, create_texture_atlas=True, texture_atlas_size=4)
         mesh = Meshes(verts=[verts], faces=[faces.verts_idx], textures= TexturesAtlas(atlas=[aux.texture_atlas])).to(device)
         
@@ -84,86 +81,56 @@ for index in tqdm(range(total_length)):
     center = verts.mean(0)
     scale = max((verts - center).abs().max(0)[0])
     mesh.offset_verts_(-center)
-    mesh.scale_verts_((1.0 / float(scale)))
+    mesh.scale_verts_((1.0 / float(scale))) 
+    meshes = mesh.extend(num_views)
 
-    # Define distance as a linspace from 2 to 6
-    distances = torch.linspace(2, 6, num_views)
-
-    # Define azimuth and elevation to rotate and cover all angles
-    azim = torch.linspace(20, 340, num_views)  # Covers full circle around the object
-    elev = torch.linspace(20, 160, num_views)  # Varied elevations to cover from top to bottom views
-
+    # Define the camera
+    distances = torch.linspace(2, 6, num_views) # Define distance as a linspace from 2 to 6
+    azim = torch.linspace(20, 340, num_views)  # Define angles of elevation as a linspace from 0 to 360
+    elev = torch.linspace(20, 160, num_views)  # Define angles of elevation as a linspace from 0 to 360
     R, T = look_at_view_transform(dist=distances, elev=elev, azim=azim)
     cameras = FoVPerspectiveCameras(device=device, R=R, T=T)
     camera = FoVPerspectiveCameras(device=device, R=R[None, 1, ...], T=T[None, 1, ...]).to(device)
     lights = PointLights(device=device, location=[[0.0, 0.0, -5.0]]).to(device)
 
-    raster_settings = RasterizationSettings(
-        image_size=img_size, 
-        blur_radius=0.0, 
-        faces_per_pixel=4,
-        bin_size=0)
-
-    # Background image color
+    # Create a rasterizer and a renderer for the target image
+    raster_settings = RasterizationSettings(image_size=img_size, 
+        blur_radius=0.0, faces_per_pixel=4, bin_size=0)
     blend_params = BlendParams(1e-4, 1e-4, (0,0,0))
-
-    # Create a MeshRasterizer object for the RGB image
     renderer = MeshRenderer(
-        rasterizer=MeshRasterizer(
-            cameras=camera, raster_settings=raster_settings),
-        shader=SoftPhongShader(
-            device=device, cameras=camera, lights=lights,
-            blend_params=blend_params
-        ))
-
-    # Get the bounding boxes for the mesh
-    bbox_3d = mesh.get_bounding_boxes()
-
-    # Render the mesh from each viewing angle
-    meshes = mesh.extend(num_views)
+        MeshRasterizer(camera, raster_settings),
+        SoftPhongShader(device, camera, lights, blend_params))
     target_images = renderer(meshes, cameras=cameras, lights=lights)
     target_rgb = [target_images[i, ..., :3] for i in range(num_views)]
 
-    # Create a MeshRasterizer object for the segmentation image
+    # Create a rasterizer for the segmentation image
     seg_raster_settings = RasterizationSettings(
-        image_size=img_size, 
-        blur_radius=0.0, 
-        faces_per_pixel=2,
-        bin_size=0)
-
-    seg_rasterizer = MeshRasterizer(
-        cameras=camera, 
-        raster_settings=seg_raster_settings
-    )
-    # Create a renderer for the segmentation image
+        image_size=img_size, blur_radius=0.0, faces_per_pixel=2, bin_size=0)
     seg_renderer = MeshRenderer(
-        rasterizer=seg_rasterizer,
-        shader=HardFlatShader(
-            device=device,
-            cameras=camera,
-            lights=lights,
-            blend_params=blend_params
-        )
-    )
+        MeshRasterizer(camera, seg_raster_settings),
+        HardFlatShader(device, camera, lights, blend_params))
     seg_images = seg_renderer(meshes, cameras=cameras)
     seg_masks = [(seg_images[i, ..., 3] > 0) for i in range(num_views)]
 
     # Create a rasterizer for the depth image
     depth_raster_settings = RasterizationSettings(
-        image_size=img_size, 
-        blur_radius=0.0,
-        faces_per_pixel=1,
-        bin_size=0)
+        image_size=img_size, blur_radius=0.0, faces_per_pixel=1, bin_size=0)
     depth_raster_settings.perspective_correct = True
-
-    # Create a MeshRasterizer object for the depth image
-    depth_rasterizer = MeshRasterizer(
-        cameras=camera,
-        raster_settings=depth_raster_settings)
-
+    depth_rasterizer = MeshRasterizer(camera, depth_raster_settings)
     fragments = depth_rasterizer(meshes, camera=cameras)
     zbuf = fragments.zbuf
     depth_images = zbuf.min(dim=-1).values
+
+    # Get the bounding boxes for the mesh
+    bbox_3d = mesh.get_bounding_boxes()
+
+    # Sample points from the mesh to create a point cloud
+    pcd_sample_num = 2048
+    pointclouds = sample_points_from_meshes(meshes, pcd_sample_num)
+    pcd_coords = pointclouds.points_packed().cpu().numpy()
+    viewpoint_coords = np.matmul(pcd_coords - center.cpu().numpy(), R.cpu().numpy().T) + T.cpu().numpy()
+    np.savetxt(f"{output_dir}/{img_id}_pcd.txt", viewpoint_coords)
+
 
     # Save the rendered images to disk
     for i in range(num_views):
@@ -179,8 +146,6 @@ for index in tqdm(range(total_length)):
         # seg_mask_norm = (seg_masks[i] - seg_masks[i].min()) / (seg_masks[i].max() - seg_masks[i].min())
 
         # plt.imsave(seg_path, seg_mask_norm.cpu().numpy())
-
-
         # print(seg_path)
         depth_path = f"{output_dir}depth/{img_id}_{i}.npy"
         depth_npy = depth_images[i].detach().cpu().numpy()

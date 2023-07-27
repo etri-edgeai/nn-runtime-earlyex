@@ -73,9 +73,9 @@ def main(cfg):
     print("Starting dataset_single_test.py...")
 
     # Read the config file
+    img_size    = cfg['0_img_size']
+    pcd_samples = cfg['0_pcd_num']
     num_views   = cfg['1_num_views']
-    img_size    = cfg['1_img_size']
-    pcd_samples = cfg['1_pcd_samples']
 
     d_0 = cfg['1_distance_range_0']
     d_1 = cfg['1_distance_range_1']
@@ -84,7 +84,7 @@ def main(cfg):
     e_0 = cfg['1_elevation_range_0']
     e_1 = cfg['1_elevation_range_1']
 
-    output_dir = cfg["1_output_dir"]
+    output_dir = cfg["1_dataset_dir"]
     os.makedirs(output_dir, exist_ok=True)
     print(f"Loading metadata...{cfg['1_input_csv']}")
     df = pd.read_csv(cfg['1_input_csv'])
