@@ -10,7 +10,6 @@ import pytorch3d as p3d
 import torch
 import torchvision
 import yaml
-import funcy
 from PIL import Image
 from sklearn.model_selection import train_test_split
 
