@@ -23,9 +23,9 @@ class E3RFnet(nn.Module):
         # E3RF 분석 모듈 초기화 설정
         super(E3RFnet, self).__init__()
         self.cfg            = cfg
-        self.img_size       = cfg['img_size']
-        self.batch_size     = cfg['batch_size']       
-        self.num_class      = 49
+        self.img_size       = cfg['0_img_size']
+        self.batch_size     = cfg['4_batch_size']       
+        self.num_class      = num_class
         self.training       = True
 
         # E3RF Backbone+FPN 모듈 선언
