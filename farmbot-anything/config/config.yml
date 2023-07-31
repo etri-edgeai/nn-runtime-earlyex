@@ -39,6 +39,14 @@ author: 'JYP'
 2_epochs:           50
 2_pcd_checkpoints:  './checkpoints/pcd_autoencoder.pth'
 # 3. train segmenation network
+3_device:           'cuda:0'
+3_batch_size:       6
+3_num_workers:      6
+3_embedding_dims:   256
+3_learning_rate:    0.0001
+3_epochs:           50
+3_solo_checkpoints:  './checkpoints/3a_solo.pth'
+
 
 # 4. train e3rf network
 
