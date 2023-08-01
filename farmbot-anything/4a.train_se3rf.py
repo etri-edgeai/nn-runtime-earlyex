@@ -45,8 +45,8 @@ class Trainer():
         # self.device = torch.device("cuda:2")
         self.dataset = ShapeNetRenderedDataset(self.cfg, "train")
         self.dataloader = torch.utils.data.DataLoader(
-            self.dataset, batch_size=2, shuffle=False, 
-            num_workers=1, collate_fn=custom_collate_fn,
+            self.dataset, batch_size=cfg['4_batch_size'], shuffle=False, 
+            num_workers=cfg['4_num_workers'], collate_fn=custom_collate_fn,
             sampler=DistributedSampler(
                 self.dataset, num_replicas=hvd.size(), rank=hvd.rank())
             
