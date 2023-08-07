@@ -35,7 +35,7 @@ class E3RFnet(nn.Module):
         try:
             print("Loading SOLOV1 checkpoint...")
             self.detect.load_state_dict(
-                torch.load(self.cfg['seg_checkpoints']))
+                torch.load(self.cfg['3_solo_checkpoints']))
         except:
             print("No SOLOV1 checkpoint found, training from scratch...")
         
@@ -48,9 +48,12 @@ class E3RFnet(nn.Module):
         try:
             print("Loading Decoder checkpoint...")
             self.decoder.load_state_dict(
-                torch.load(self.cfg['pcd_checkpoints']))
+                torch.load(self.cfg['2_pcd_checkpoints']))
         except:
             print("No Decoder checkpoint found, training from scratch...")
+        
+        for name, param in self.named_parameters():
+            param.requires_grad = True
 
     def forward_loss(self, img, depth, pcd, masks, bboxes, labels):
         batch, channels, height, width = img.shape
@@ -80,7 +83,9 @@ class E3RFnet(nn.Module):
 
         if len(seg_masks) != 0:
             try:         
-                for f, s, p in zip(feats, seg_masks, pcd):
+                # for f, s, p in zip(feats, seg_masks, pcd):
+                for i, (f, s) in enumerate(zip(feats, seg_masks)):
+                    
                     f = f.unsqueeze(0)
                     idx = torch.argmax(s[2],dim=0).item()
                     # print(idx)
@@ -91,7 +96,8 @@ class E3RFnet(nn.Module):
                     # print(latent.shape)
                     pcd_pred = self.decoder(latent)
                     # print(pcd_pred.shape, p.shape)
-                    p = p.unsqueeze(0)
+                    p = pcd[i].unsqueeze(0).view(-1, 2048, 3)[0].unsqueeze(0)
+                    # p = p.unsqueeze(0).view(-1, 2048, 3)
                     # pcd_pred = pcd_pred[max_index].unsqueeze(0)
                     # print(pcd_pred.shape, p.shape)
                     loss['pcd_loss'] += chamfer_distance(pcd_pred.float(), p.float())[0]
@@ -104,19 +110,35 @@ class E3RFnet(nn.Module):
         return loss
     
     def forward_inference(self, img, depth):
-        assert(img.shape[0] == 1) # batch size must be 1
+        assert(img.shape[0] == 1 and len(img.shape) == 4) # batch size must be 1
 
-        img_feats = self.detect.extract_feat(img)
-        inst_pred, cate_pred = self.detect.bbox_head(img_feats)
-        rgbd = torch.cat((img, depth.unsqueeze(1)), dim=1)
+        batch, channels, height, width = img.shape
+        img_feats = self.detect.extract_feat(img) # img_feats on 5 levels
+        inst_pred, cate_pred = self.detect.bbox_head(img_feats) # 5 levels
+        depth = F.interpolate(depth.unsqueeze(1), size=(height,width),mode='nearest')
+        rgbd = torch.cat((img, depth), dim=1)
         rgbd_feats = self.rgbd_input(rgbd)
-        feats = self.feat_fusion(rgbd_feats, img_feats)            
-        seg_masks = self.bbox_head.get_seg(inst_pred, cate_pred, img)
+        
+        img_feats = torch.cat([F.interpolate(
+            i, size=(32, 32), mode='bilinear', align_corners=True) \
+                for i in img_feats],dim=1)
+        
+        seg_masks = self.detect.bbox_head.get_seg(inst_pred, cate_pred, img)
+        feats = self.feat_fusion(rgbd_feats, img_feats)
 
-        for seg_mask in seg_masks:
-            latent = self.mask_fusion(feats, seg_mask)
-            pcd_pred = self.decoder(latent)
-        pcd_preds = torch.stack(pcd_preds, dim=0)
+        pcd_preds = []
+        if len(seg_masks) != 0:
+            for f, s in zip(feats, seg_masks):
+                f = f.unsqueeze(0)
+                idx = torch.argmax(s[2],dim=0).item()
+                # print(idx)
+                s_0 = s[0][idx,:,:].unsqueeze(0).unsqueeze(0).float()
+                # print(f.shape, s_0.shape, s[1].shape, s[2].shape)
+                
+                latent = self.mask_fusion(f, s_0)
+                # print(latent.shape)
+                pcd_pred = self.decoder(latent).unsqueeze(0)
+                pcd_preds.append(pcd_pred)
         return pcd_preds
 
 
