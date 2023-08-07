@@ -62,7 +62,8 @@ class Trainer():
         self.model = E3RFnet(self.cfg,  num_class=49, device = self.device)
         # count_parameters(self.model)
         try:
-            torch.load( cfg['4_se3rf_checkpoints'], map_location=self.device)
+            self.model.load_state_dict( torch.load(cfg['4_se3rf_checkpoints']))
+            self.model.to(self.device)
         except:
             print("No E3RF(SOLO) checkpoint found, training from scratch...")            
 
@@ -97,6 +98,9 @@ class Trainer():
         for epoch in range(self.epoch):
             # pbar = tqdm(self.dataloader)
             total_loss = 0.0
+            total_pcd_loss = 0.0
+            total_inst_loss = 0.0
+            total_cate_loss = 0.0
             num_batches = 0 
             # for i, (images,  data) in enumerate(pbar):
             for i, (images, data) in enumerate(self.dataloader):
@@ -107,6 +111,9 @@ class Trainer():
                     d.to(self.device) for d in data['depth']], dim=0)
                 pcd = torch.stack([
                     p.to(self.device) for p in data['pcd']],dim=0)
+                apcd = torch.stack([
+                    p.to(self.device) for p in data['apcd']],dim=0)
+                
                 masks = [torch.stack(m).to(self.device) \
                          for m in data['masks']]
                 bboxes = [torch.stack(b).to(self.device) \
@@ -114,11 +121,18 @@ class Trainer():
                 labels = [torch.stack(l).to(self.device) \
                         for l in data['labels']]
                 imgs = imgs.squeeze(0)
-                # print(imgs.shape)
-                los = self.model(imgs, depth, pcd, masks, bboxes, labels)
+                # print(pcd.shape, apcd.shape)
+                los = self.model(imgs, depth, apcd, masks, bboxes, labels)
                 num_batches += 1
                 loss = los['pcd_loss'] + los['inst_loss'] + los['cate_loss']
+                try:
+                    total_pcd_loss += los['pcd_loss'].item() 
+                except AttributeError:
+                    total_pcd_loss += 0.0
+                total_inst_loss += los['inst_loss'].item()
+                total_cate_loss += los['cate_loss'].item()
                 total_loss += loss.item()
+                
                 optimizer.zero_grad()
                 # scaler.scale(loss).backward()
                 # scaler.step(self.optimizer)
@@ -142,47 +156,12 @@ class Trainer():
                     print(f"Estimated remaining time: {remaining_minutes} minutes {remaining_seconds} seconds")
             avg_loss = total_loss / num_batches
             print(f"[{epoch}/{self.cfg['epochs']}]Loss: {avg_loss:.4f}")
-            
+            print(f"pcd_loss: {total_pcd_loss / num_batches:.4f}")
+            print(f"inst_loss: {total_inst_loss / num_batches:.4f}")
+            print(f"cate_loss: {total_cate_loss / num_batches:.4f}")
             if epoch % 5 == 0 and hvd.rank() == 0:
                 torch.save(self.model.state_dict(),  cfg['4_se3rf_checkpoints'])
                 print("Model saved!")
-            # if epoch % 2 == 0:
-            #     self.valid()
-            #     self.model.train()
-            #     self.model.to(self.device)
-            #     torch.cuda.empty_cache()
-
-    def valid(self):
-        self.model.eval()
-        self.model.to(self.device)
-        
-        print("Validating...")
-        pbar = tqdm(self.val_dataloader)
-        total_loss = 0.0
-        for i, (images, data) in enumerate(pbar):
-            imgs = torch.stack([
-                img.to(self.device) for img in images], dim=0)
-            depth = torch.stack([
-                d.to(self.device) for d in data['depth']], dim=0)
-            pcd = torch.stack([
-                p.to(self.device) for p in data['pcd']],dim=0)
-            masks = [torch.stack(m).to(self.device) \
-                        for m in data['masks']]
-            bboxes = [torch.stack(b).to(self.device) \
-                    for b in data['boxes']]
-            labels = [torch.stack(l).to(self.device) \
-                    for l in data['labels']]
-
-            with torch.no_grad():
-                los = self.model(imgs, depth, pcd, masks, bboxes, labels)
-            num_batches += 1
-            loss = los['pcd_loss'] + los['inst_loss'] + los['cate_loss']
-            total_loss += loss.item()
-            if i == 100:
-                break
-        avg_loss = total_loss / len(self.val_dataloader)
-        print(f"Validation Loss: {avg_loss:.4f}")
-        torch.cuda.ipc_collect()
 
 
 def main(cfg, rank):
