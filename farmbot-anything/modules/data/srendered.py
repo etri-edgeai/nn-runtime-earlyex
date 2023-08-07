@@ -24,12 +24,19 @@ def custom_collate_fn(batch):
     masks = [target["mask"] for target in batch]
     pcd = [target["pcd"] for target in batch]
     pcd_center = [target["pcd_center"] for target in batch]
-    pcd_radius = [target["pcd_radius"] for target in batch]    
+    pcd_radius = [target["pcd_radius"] for target in batch]
+    apcd = [target["apcd"] for target in batch]
+
     bboxes_list = [target["bboxes"] for target in batch]
     bboxes = [[torch.FloatTensor(box[:4]) for box in boxes] \
             for boxes in bboxes_list]    
     label = [[torch.tensor(box[4], dtype=torch.int64)
             for box in boxes] for boxes in bboxes_list]
+    
+    R   = [target["R"] for target in batch]
+    T   = [target["T"] for target in batch]
+    
+    pose = [target["pose"] for target in batch]
 
     # Return Images and Targets
     return imgs, {
@@ -39,7 +46,11 @@ def custom_collate_fn(batch):
         "pcd":        pcd,
         "pcd_center": pcd_center,
         "pcd_radius": pcd_radius,
-        "depth":      depth
+        "depth":      depth,
+        "apcd":       apcd,
+        "R":          R,
+        "T":          T,
+        "pose":       pose
         }
 
     
@@ -72,15 +83,23 @@ class ShapeNetRenderedDataset(Dataset):
         depth_path  = images["depth_path"]
         seg_path    = images["seg_path"]
         pcd_path    = images["pcd_path"]
+        apcd_path   = images["apcd_path"]
+        pose_path   = images["pose_path"]
         
-        # Load Point Cloud
-        pcd         = torch.load(pcd_path).squeeze(0).transpose(1, 0)
+        # print(rgb_path, pose_path)
 
-        # Normalize Point Cloud
+        # Load Point Cloud
+        pcd         = torch.load(pcd_path).squeeze(0)
         centroid    = torch.mean(pcd, 0)
-        pcd         = pcd - centroid
+        # pcd         = pcd - centroid
         radius      = torch.max(torch.norm(pcd, 1))
-        pcd         = pcd / radius
+        # pcd         = pcd / radius
+
+        # Load absolute Point Cloud
+        apcd        = torch.load(apcd_path).squeeze(0)
+
+        # Load Pose
+        pose        = torch.load(pose_path).squeeze(0)
         
         # Load Image and Segmentation Mask
         img = cv2.imread(rgb_path)
@@ -95,6 +114,9 @@ class ShapeNetRenderedDataset(Dataset):
         w = annotations["bbox"][2]
         h = annotations["bbox"][3]
         bbox = [[x, y, x+w-1, y+h-1, label]]
+
+        r = annotations["R"]
+        t = annotations["T"]
 
         # Transform Image and Mask       
         img_transforms = torchvision.transforms.Compose([
@@ -130,7 +152,11 @@ class ShapeNetRenderedDataset(Dataset):
         targets["std"]      = np.array(img).std(axis=(0, 1))
         targets['pcd_center'] = centroid
         targets['pcd_radius'] = radius
-        targets['pcd']      = pcd  
+        targets['pcd']      = pcd
+        targets['apcd']     = apcd
+        targets['pose']     = pose
+        targets['R']        = r
+        targets['T']        = t
         return targets
 
 if __name__ == '__main__':
