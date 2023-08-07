@@ -9,7 +9,7 @@ author: 'JYP'
 0_pcd_num:      2048
 0_dataset_dir:  './data/rendered/'
 0_train_json:   './data/rendered/train.json'
-0_test_json:    './data/rendered/test.json'
+0_test_json:    './data/rendered/val.json'
 
 # 0. dataset preprocessing
 0_input:  './data/metadata.csv'
@@ -38,19 +38,29 @@ author: 'JYP'
 2_learning_rate:    0.001
 2_epochs:           50
 2_pcd_checkpoints:  './checkpoints/pcd_autoencoder.pth'
+
 # 3. train segmenation network
-3_device:           'cuda:0'
-3_batch_size:       6
-3_num_workers:      6
+3_batch_size:       8
+3_num_workers:      4
 3_embedding_dims:   256
-3_learning_rate:    0.0001
+3_learning_rate:    0.001
 3_epochs:           50
 3_solo_checkpoints:  './checkpoints/3a_solo.pth'
 
 
 # 4. train e3rf network
+4_batch_size:       6
+4_num_workers:      6
+4_embedding_dims:   2048
+4_learning_rate:    0.0001
+4_epochs:           50
+4_se3rf_checkpoints:  './checkpoints/4a_e3rf.pth'
 
-
+# 5. validate and visualize e3rf network
+5_se3rf_checkpoints:  './checkpoints/4a_e3rf.pth'
+5_batch_size:       1
+5_num_workers:      0
+5_output_dir:       './output/'
 
 
 
@@ -95,6 +105,7 @@ seg_dir:   'seg/'
 pcd_dir:   'pcd/'
 obj_dir:   'obj/'
 apcd_dir:  'apcd/'
+rpcd_dir: 'rpcd/'
 coco_json: 'coco_annotations.json'
 
 # model
