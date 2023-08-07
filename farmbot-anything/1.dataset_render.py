@@ -15,17 +15,27 @@ from sklearn.model_selection import train_test_split
 
 from pytorch3d.io import load_obj
 from pytorch3d.ops import sample_points_from_meshes
+from pytorch3d.structures import Pointclouds
+
 from pytorch3d.renderer import (CamerasBase, FoVPerspectiveCameras,
                                 HardFlatShader, HardPhongShader,
                                 MeshRasterizer, MeshRenderer, PointLights,
                                 RasterizationSettings, SoftPhongShader,
                                 SoftSilhouetteShader, Textures, TexturesAtlas,
-                                TexturesUV, look_at_view_transform)
+                                TexturesUV, look_at_view_transform, 
+                                PointsRenderer, PointsRasterizer, 
+                                PointsRasterizationSettings, 
+                                NormWeightedCompositor, AlphaCompositor)
 from pytorch3d.renderer.blending import BlendParams
 from pytorch3d.structures import Meshes, join_meshes_as_batch
 from pytorch3d.utils import ico_sphere
 from tqdm import tqdm
 
+
+def color_points_white(point_cloud):
+    # Create an array of the same shape as the point cloud with all values set to 1
+    colors = torch.ones(point_cloud.shape[0], 3, device=point_cloud.device)
+    return colors
 
 class DepthShader(SoftPhongShader):
     def __init__(self, device, cameras=None, lights=None, blend_params=None):
@@ -96,6 +106,8 @@ def main(cfg):
     seg_dir = os.path.join(output_dir, 'seg')
     pcd_dir = os.path.join(output_dir, 'pcd')
     apcd_dir = os.path.join(output_dir, 'apcd')
+    rpcd_dir = os.path.join(output_dir, 'rpcd')
+    pose_dir = os.path.join(output_dir, 'pose')
     
     print("Creating output directories...")
     os.makedirs(rgb_dir, exist_ok=True)
@@ -104,6 +116,8 @@ def main(cfg):
     os.makedirs(seg_dir, exist_ok=True)
     os.makedirs(pcd_dir, exist_ok=True)
     os.makedirs(apcd_dir, exist_ok=True)
+    os.makedirs(rpcd_dir, exist_ok=True)
+    os.makedirs(pose_dir, exist_ok=True)
 
     # # Choose an item from the metadata
     total_length = len(df)
@@ -176,19 +190,21 @@ def main(cfg):
             bbox_3d = mesh.get_bounding_boxes()
             
             # Sample points from the surface of the mesh
-            points = sample_points_from_meshes(
-                meshes=mesh, num_samples=pcd_samples)
+            points = sample_points_from_meshes(meshes=meshes, num_samples=pcd_samples)
 
-            # Create a camera
+            # Create multiple camera views
             pbar.set_description("Creating cameras...")
             R, T = look_at_view_transform(
                 dist=distances, elev=elev, azim= azim)
-            cameras = FoVPerspectiveCameras(
-                device=device, R=R, T=T)
+
             camera = FoVPerspectiveCameras(
-                device=device, R=R[None, 1, ...], T=T[None, 1, ...]).to(device)
+                device=device, R=R, T=T).to(device)
+
+            # Create a PointLights object
             lights = PointLights(
-                device=device, location=[[0.0, 0.0, -5.0]]).to(device)
+                device=device, location=[[0.0, 0.0, -2.0]]).to(device)
+            
+            # Create a RasterizationSettings object
             blend_params = BlendParams(1e-4, 1e-4, (0,0,0))
             
             # Create a MeshRasterizer object for the rgb image
@@ -205,7 +221,7 @@ def main(cfg):
                 lights=lights, blend_params=blend_params)
             rgb_renderer = MeshRenderer(
                 rasterizer=rgb_rasterizer, shader=rgb_shader)
-            rgb_images = rgb_renderer(meshes, cameras=cameras, lights=lights)
+            rgb_images = rgb_renderer(meshes, cameras=camera, lights=lights)
             rgb_targets = [rgb_images[i, ..., :3] for i in range(num_views)]
 
             # Create a MeshRasterizer object for the segmentation image
@@ -220,7 +236,7 @@ def main(cfg):
                 lights=lights, blend_params=blend_params)
             seg_renderer = MeshRenderer(
                 rasterizer=seg_rasterizer, shader=seg_shader)
-            seg_images = seg_renderer(meshes, cameras=cameras)
+            seg_images = seg_renderer(meshes, cameras=camera)
             seg_masks = [(seg_images[i, ..., 3] > 0) for i in range(num_views)]
 
             # Create a rasterizer for the depth image
@@ -231,15 +247,43 @@ def main(cfg):
             depth_raster_settings.perspective_correct = True
             depth_rasterizer = MeshRasterizer(
                 cameras=camera, raster_settings=depth_raster_settings)
-            depth_fragments = depth_rasterizer(meshes, camera=cameras)
+            depth_fragments = depth_rasterizer(meshes, camera=camera)
             depth_zbuf = depth_fragments.zbuf
             depth_images = depth_zbuf.min(dim=-1).values
+
+            # Create a rasterizer for the point cloud
+            pbar.set_description("Rendering point cloud...")
+            
+            pcd_raster_settings = PointsRasterizationSettings(
+                image_size=img_size, radius=0.01, points_per_pixel=10)
+            pcd_rasterizer = PointsRasterizer(
+                cameras=camera, raster_settings=pcd_raster_settings)
+            pcd_renderer = PointsRenderer(
+                rasterizer=pcd_rasterizer, compositor=AlphaCompositor())
+
+            # print(points.shape)
+            pcdd = points.squeeze()
+            # print(pcdd.shape)
+            # colors = color_points_white(points)
+            colors = color_points_white(points).unsqueeze(1).expand(-1, pcdd.shape[1], -1)
+
+            # print(colors.shape)
+            pcd_point_clouds = Pointclouds(points=pcdd, features=colors)
+            # print(pcd_point_clouds.points_padded().shape)
+            pcd_images = pcd_renderer(pcd_point_clouds)
+            # print(pcd_images.shape)
+            pcd_targets = [pcd_images[0,..., :3] for i in range(num_views)]
 
             # Save the rendered images to disk
             pbar.set_description("Saving images to disk...")
             for i in range(num_views):
                 # Save the rendered RGB images to disk
-                rgb_path = f"{rgb_dir}/{img_id}_{i}.png"                
+                rgb_path = f"{rgb_dir}/{img_id}_{i}.png"
+                # plt.imshow(rgb_targets[i].cpu().numpy())
+                # plt.axis('off')
+                # plt.text(10, 10, f"View {rgb_path}", color="white")       
+                # plt.savefig(rgb_path, bbox_inches='tight', pad_inches=0)
+                # plt.close()
                 plt.imsave(rgb_path, rgb_targets[i].cpu().numpy())
 
                 # Save the segmentation masks to disk
@@ -247,23 +291,41 @@ def main(cfg):
                 seg_mask = seg_masks[i].detach().cpu().numpy()
                 Image.fromarray(seg_mask).save(seg_path)
 
+                # Save the rendered point cloud to disk
+                rpcd_path = f"{rpcd_dir}/{img_id}_{i}.png"
+                rpcd_i = pcd_images[i].detach().cpu().numpy()
+                rpcd_image = (rpcd_i - rpcd_i.min()) / (rpcd_i.max() - rpcd_i.min())
+                plt.imsave(rpcd_path, rpcd_image)
+
                 # Rotation and translation
                 R_i, T_i = R[i].to(device), T[i].to(device)
-                
+
                 # Save Point Cloud with Absolute Coordinates to disk
                 apcd_path = f"{apcd_dir}/{img_id}_{i}.pt"
-                points_i = points.to(device)
-                torch.save(points_i, apcd_path)
+                apcd_i = points.to(device)
+                torch.save(apcd_i, apcd_path)
 
                 # Save Point Cloud with Viewpoint Coordinates to disk
                 pcd_path = f"{pcd_dir}/{img_id}_{i}.pt"
-                points_i = torch.matmul(points, R_i)
-                points_i += points_i + T_i
-                torch.save(points_i, pcd_path)
+                vpcd_i = torch.matmul(apcd_i - T_i , R_i)
+                vpcd_i -= vpcd_i.mean(dim=0)
+                # Scale the point cloud
+                scale = vpcd_i.abs().max()
+                vpcd_i /= scale
+                torch.save(vpcd_i, pcd_path)
+
 
                 # Save the depth images to disk
                 depth_path = f"{depth_dir}/{img_id}_{i}.pt"
                 torch.save(depth_images[i], depth_path)
+
+                # Save the pose to disk
+                pose_path = f"{pose_dir}/{img_id}_{i}.pt"
+                pose = torch.eye(4, device="cpu")
+                pose[:3, :3] = R[i].cpu()
+                pose[:3,  3] = T[i].cpu()
+                torch.save(pose, pose_path)
+
 
                 # Save the image to the coco format
                 coco_output["images"].append({
@@ -275,15 +337,15 @@ def main(cfg):
                     'pcd_path' : pcd_path,
                     'apcd_path' : apcd_path,
                     'depth_path' : depth_path,
+                    'rpcd_path' : rpcd_path,
+                    'pose_path' : pose_path,
                     'license': 0,
                     'flickr_url': '',
                     'coco_url': '',
                     'date_captured': '',
                 })
                 
-                # pose = torch.eye(4, device="cpu")
-                # pose[:3, :3] = R[i].cpu()
-                # pose[:3,  3] = T[i].cpu()
+
 
                 # save the 6D pose to disk
                 bbox_3d_i   = np.round(bbox_3d.cpu().numpy(), 1)
