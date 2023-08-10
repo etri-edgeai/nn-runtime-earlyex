@@ -61,49 +61,28 @@ class Trainer():
             pbar = tqdm(self.dataloader)
             total_loss = 0.0
             num_batches = 0
-            for i, (img, target) in enumerate(pbar):
+            for i, (images, data) in enumerate(pbar):
+
                 self.optimizer.zero_grad()
-                target = {k: v.to(self.device) for k, v in target.items()}
-                output = self.model(target['pcd'])
-                loss = chamfer_distance(output, target['pcd'])[0] + \
-                        self.mse_loss(output, target['pcd'])
+                apcd = torch.stack([
+                    p.to(self.device) for p in data['apcd']],dim=0)
+                apcd = apcd.view(-1, 2048, 3)
+                print(apcd.shape)
+
+                output = self.model(apcd)
+                print(output.shape)
+                loss = chamfer_distance(output, apcd)[0] + \
+                        self.mse_loss(output, apcd)
                 total_loss += loss.item()
                 num_batches += 1
                 loss.backward()
                 self.optimizer.step()
             avg_loss = total_loss / num_batches
             print(f"[{epoch}/{cfg['epochs']}]Loss: {avg_loss:.4f}")
-            if epoch % 10 == 0:
+            if epoch % 5 == 0:
                 print("saving model...")
                 torch.save(
                     self.model.decoder.state_dict(), cfg['2_pcd_checkpoints'])
-            if epoch % 2 == 0:
-                self.valid(epoch)
-
-    def valid(self, test_index):
-        """
-        Args:
-            test_index: Index of the test data in the dataset
-        """
-        self.model.eval()  # Set the model to evaluation mode
-        pbar = tqdm(self.val_dataloader)
-        total_loss = 0.0
-        num_batches = 0
-        for i, (img, target) in enumerate(pbar):
-            with torch.no_grad():  # Do not compute gradient for this block
-                target = {k: v.to(self.device) for k, v in target.items()}
-                # Forward the test data through the model
-                output = self.model(target['pcd'])
-
-                # Compute the Chamfer distance 
-                # between the original and reconstructed point clouds
-                loss = chamfer_distance(
-                    output, target['pcd'])[0] + \
-                        self.mse_loss(output, target['pcd'])
-                total_loss += loss.item()
-                num_batches += 1
-        avg_loss = total_loss / num_batches
-        print(f"[{test_index}/{cfg['epochs']}]Validation Loss: {avg_loss:.4f}")
 
 if __name__ == '__main__':
     """Main function"""
