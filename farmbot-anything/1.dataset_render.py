@@ -302,7 +302,7 @@ def main(cfg):
 
                 # Save Point Cloud with Absolute Coordinates to disk
                 apcd_path = f"{apcd_dir}/{img_id}_{i}.pt"
-                apcd_i = points.to(device)
+                apcd_i = points[i].unsqueeze(0).to(device)
                 torch.save(apcd_i, apcd_path)
 
                 # Save Point Cloud with Viewpoint Coordinates to disk
