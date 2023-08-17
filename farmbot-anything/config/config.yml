@@ -34,15 +34,15 @@ author: 'JYP'
 2_device:           'cuda:0'
 2_batch_size:       16
 2_num_workers:      16
-2_embedding_dims:   256
-2_learning_rate:    0.001
+2_embedding_dims:   2048
+2_learning_rate:    0.0001
 2_epochs:           50
-2_pcd_checkpoints:  './checkpoints/pcd_autoencoder.pth'
+2_pcd_checkpoints:  './checkpoints/2.pcd_autoencoder.pth'
 
 # 3. train segmenation network
 3_batch_size:       8
 3_num_workers:      4
-3_embedding_dims:   256
+3_embedding_dims:   2048
 3_learning_rate:    0.001
 3_epochs:           50
 3_solo_checkpoints:  './checkpoints/3a_solo.pth'
