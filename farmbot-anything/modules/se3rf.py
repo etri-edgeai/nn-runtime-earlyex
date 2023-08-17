@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .autoencoder import PCDDecoder
+from .autoencoder import PCDAutoEncoder
+
 # from .mask_rcnn import maskrcnn_resnet50_fpn_v2
 from .solov1 import SOLOV1
 from .rgbd_input import RGBDInputModule
@@ -42,23 +44,32 @@ class E3RFnet(nn.Module):
         self.rgbd_input = RGBDInputModule(cfg)
         self.feat_fusion    = FeatureFusionModule(cfg)
         self.mask_fusion    = MaskFusionEncoder(cfg)
-        self.decoder    = PCDDecoder(
-            embedding_dims= 2048, pcd_samples = 2048)
+        self.autoencoder    = PCDAutoEncoder(
+            embedding_dims=cfg['2_embedding_dims'], pcd_samples=2048)
+        # self.decoder    = PCDDecoder(
+        #     embedding_dims= 2048, pcd_samples = 2048)
 
-        try:
-            print("Loading Decoder checkpoint...")
-            self.decoder.load_state_dict(
-                torch.load(self.cfg['2_pcd_checkpoints']))
-        except:
-            print("No Decoder checkpoint found, training from scratch...")
+        print("Loading Decoder checkpoint...")
+        self.autoencoder.load_state_dict(
+            torch.load(self.cfg['2_pcd_checkpoints']))
+        # except:
+        #     print("No Decoder checkpoint found, training from scratch...")
         
         for name, param in self.named_parameters():
             param.requires_grad = True
 
+        for name, param in self.autoencoder.named_parameters():
+            param.requires_grad = False
+
+
     def forward_loss(self, img, depth, pcd, masks, bboxes, labels):
         batch, channels, height, width = img.shape
-        img_feats = self.detect.extract_feat(img) # img_feats on 5 levels
-        inst_pred, cate_pred = self.detect.bbox_head(img_feats) # 5 levels
+        # img_feats on 5 levels
+        img_feats = self.detect.extract_feat(img)
+
+        # instance prediction, category prediction
+        inst_pred, cate_pred = self.detect.bbox_head(img_feats)
+
         depth = F.interpolate(depth.unsqueeze(1), size=(height,width),mode='nearest')
         rgbd = torch.cat((img, depth), dim=1)
         rgbd_feats = self.rgbd_input(rgbd)
@@ -94,7 +105,7 @@ class E3RFnet(nn.Module):
                     
                     latent = self.mask_fusion(f, s_0)
                     # print(latent.shape)
-                    pcd_pred = self.decoder(latent)
+                    pcd_pred = self.autoencoder.decoder(latent)
                     # print(pcd_pred.shape, p.shape)
                     p = pcd[i].unsqueeze(0).view(-1, 2048, 3)[0].unsqueeze(0)
                     # p = p.unsqueeze(0).view(-1, 2048, 3)
