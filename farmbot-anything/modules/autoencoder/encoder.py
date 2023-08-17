@@ -19,7 +19,8 @@ class PCDEncoder(nn.Module):
         Args:
             x: (B, 3, N)
         """
-        pcd_num = x.shape[-1]
+        pcd_num = x.shape[-2]
+        x = x.view(-1, 3, pcd_num)
         x_initial = x
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
