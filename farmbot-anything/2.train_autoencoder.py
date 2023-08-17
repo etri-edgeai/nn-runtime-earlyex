@@ -40,7 +40,9 @@ class Trainer():
         self.model = PCDAutoEncoder(
             embedding_dims=cfg['2_embedding_dims'],
             pcd_samples=2048).to(self.device)
-            
+        
+        # self.model.load_state_dict(
+        #     torch.load(self.cfg['2_pcd_checkpoints']))
         count_parameters(self.model)
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=cfg['2_learning_rate'])
@@ -66,11 +68,9 @@ class Trainer():
                 self.optimizer.zero_grad()
                 apcd = torch.stack([
                     p.to(self.device) for p in data['apcd']],dim=0)
-                apcd = apcd.view(-1, 2048, 3)
-                print(apcd.shape)
-
+                # apcd = apcd.view(-1, 2048, 3)
+                # apcd = apcd.view(-1, 3, 2048)
                 output = self.model(apcd)
-                print(output.shape)
                 loss = chamfer_distance(output, apcd)[0] + \
                         self.mse_loss(output, apcd)
                 total_loss += loss.item()
@@ -83,6 +83,12 @@ class Trainer():
                 print("saving model...")
                 torch.save(
                     self.model.decoder.state_dict(), cfg['2_pcd_checkpoints'])
+
+    def visualize(self):
+        """visualize val data"""
+
+
+
 
 if __name__ == '__main__':
     """Main function"""
@@ -101,4 +107,4 @@ if __name__ == '__main__':
         torch.save(
             trainer.model.decoder.state_dict(), cfg['2_pcd_checkpoints'])
 
-    original_pcd, reconstructed_pcd = trainer.validate(0)
+    # original_pcd, reconstructed_pcd = trainer.validate(0)
