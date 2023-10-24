@@ -9,6 +9,14 @@ from scipy import ndimage
 
 INF = 1e8
 
+def print_nested_list_shape(lst, prefix=""):
+    if isinstance(lst, list):
+        print(f"{prefix}List of shape {len(lst)}")
+        for item in lst:
+            print_nested_list_shape(item, prefix + "  ")
+    elif isinstance(lst, torch.Tensor):
+        print(f"{prefix}Tensor of shape {lst.shape}")
+
 
 def imrescale(img, scale):
     # Convert the image to a PyTorch tensor and add an extra batch dimension
@@ -213,7 +221,7 @@ class SOLOv1Head(nn.Module):
         #         for mm, iii in enumerate(ii):
         #             print(f"{n},{m},{mm} ins_label_list.shape: ", iii.shape)
         #             print(f"{n},{m},{mm} ins_label_list: ", iii.unique())
-                    
+	
         # ins
         ins_labels = [
             torch.cat([ins_labels_level_img[ins_ind_labels_level_img, ...] 
