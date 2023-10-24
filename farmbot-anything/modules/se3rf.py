@@ -4,20 +4,18 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .autoencoder import PCDDecoder
+# from .autoencoder import PCDDecoder
 from .autoencoder import PCDAutoEncoder
-
 # from .mask_rcnn import maskrcnn_resnet50_fpn_v2
 from .solov1 import SOLOV1
-from .rgbd_input import RGBDInputModule
-from .sfusion import FeatureFusionModule, MaskFusionEncoder
+# from .rrgbd_input import RGBDInputModule
+from .rrgbd_input import RGBDInput
+from .ssfusion import FeatureFusionModule, MaskFusionEncoder
 import pytorch3d
-from pytorch3d.loss import chamfer_distance
+from functools import partial
 
 random.seed(0)
 torch.manual_seed(0)
-
-
 
 class E3RFnet(nn.Module):
     """entire segmentation module"""
@@ -41,127 +39,103 @@ class E3RFnet(nn.Module):
         except:
             print("No SOLOV1 checkpoint found, training from scratch...")
         
-        self.rgbd_input = RGBDInputModule(cfg)
-        self.feat_fusion    = FeatureFusionModule(cfg)
-        self.mask_fusion    = MaskFusionEncoder(cfg)
-        self.autoencoder    = PCDAutoEncoder(
-            embedding_dims=cfg['2_embedding_dims'], pcd_samples=2048)
-        # self.decoder    = PCDDecoder(
-        #     embedding_dims= 2048, pcd_samples = 2048)
+        # self.rgbd_input     = RGBDInputModule(cfg)
+        self.rgbd_input       = RGBDInput(cfg)
+        # self.feat_fusion    = FeatureFusionModule(cfg)
+        # self.feat_fusion   = FeatureFusionModule(cfg)
+        # self.mask_fusion    = MaskFusionEncoder(cfg)
+        # self.autoencoder    = PCDAutoEncoder(
+        #     embedding_dims  = cfg['4_embedding_dims'], pcd_samples = cfg['0_pcd_num'])
+        # self.autoencoder.train()
+        # self.decoder        = PCDDecoder(
+        #     embedding_dims  = cfg['4_embedding_dims'], pcd_samples = cfg['0_pcd_num'])
 
-        print("Loading Decoder checkpoint...")
-        self.autoencoder.load_state_dict(
-            torch.load(self.cfg['2_pcd_checkpoints']))
+        # try:
+        #     print("Loading Decoder checkpoint...")
+        #     self.autoencoder.load_state_dict(
+        #         torch.load(self.cfg['2_pcd_checkpoints']))
         # except:
         #     print("No Decoder checkpoint found, training from scratch...")
         
         for name, param in self.named_parameters():
             param.requires_grad = True
 
-        for name, param in self.autoencoder.named_parameters():
-            param.requires_grad = False
-
+    def feat_fuse(self, rgbd_feat, ins_pred):
+        result = rgbd_feat + ins_pred
+        return result
 
     def forward_loss(self, img, depth, pcd, masks, bboxes, labels):
         batch, channels, height, width = img.shape
-        # img_feats on 5 levels
         img_feats = self.detect.extract_feat(img)
-
-        # instance prediction, category prediction
-        inst_pred, cate_pred = self.detect.bbox_head(img_feats)
-
-        depth = F.interpolate(depth.unsqueeze(1), size=(height,width),mode='nearest')
-        rgbd = torch.cat((img, depth), dim=1)
-        rgbd_feats = self.rgbd_input(rgbd)
         
+        ins_pred, cate_pred, pcd_pred = self.detect.bbox_head(img_feats)
+
         img_feats = torch.cat([F.interpolate(
             i, size=(32, 32), mode='bilinear', align_corners=True) \
                 for i in img_feats],dim=1)
-        
-        det_loss = self.detect.bbox_head.loss(
-            inst_pred, cate_pred, bboxes, labels, masks)
+        depth   = F.interpolate(
+            depth.unsqueeze(1), size=(height,width),mode='nearest')
 
-        seg_masks = self.detect.bbox_head.get_seg(inst_pred, cate_pred, img)
-        feats = self.feat_fusion(rgbd_feats, img_feats)
+        loss = self.detect.bbox_head.loss(
+            ins_pred, cate_pred, pcd_pred, bboxes, labels, masks, pcd)
 
-        # if len(seg_masks) == 0:
-        #     for b in range(batch):
-        #         seg_masks.append(torch.zeros((1, 1, 32, 32)).to(self.device))
-        pcd_preds = []
-        pcd_loss = []
-        loss = {}
-        loss['pcd_loss'] = 0.0
-
-        if len(seg_masks) != 0:
-            try:         
-                # for f, s, p in zip(feats, seg_masks, pcd):
-                for i, (f, s) in enumerate(zip(feats, seg_masks)):
-                    
-                    f = f.unsqueeze(0)
-                    idx = torch.argmax(s[2],dim=0).item()
-                    # print(idx)
-                    s_0 = s[0][idx,:,:].unsqueeze(0).unsqueeze(0).float()
-                    # print(f.shape, s_0.shape, s[1].shape, s[2].shape)
-                    
-                    latent = self.mask_fusion(f, s_0)
-                    # print(latent.shape)
-                    pcd_pred = self.autoencoder.decoder(latent)
-                    # print(pcd_pred.shape, p.shape)
-                    p = pcd[i].unsqueeze(0).view(-1, 2048, 3)[0].unsqueeze(0)
-                    # p = p.unsqueeze(0).view(-1, 2048, 3)
-                    # pcd_pred = pcd_pred[max_index].unsqueeze(0)
-                    # print(pcd_pred.shape, p.shape)
-                    loss['pcd_loss'] += chamfer_distance(pcd_pred.float(), p.float())[0]
-                    # ds.append(pcd_pred)
-            except TypeError:
-                loss['pcd_loss'] = 0.0
-        # pcd_preds = torch.stack(pcd_preds, dim=0).squeeze(1)
-        loss['inst_loss'] = det_loss['loss_ins']
-        loss['cate_loss'] = det_loss['loss_cate']
         return loss
     
     def forward_inference(self, img, depth):
-        assert(img.shape[0] == 1 and len(img.shape) == 4) # batch size must be 1
 
-        batch, channels, height, width = img.shape
-        img_feats = self.detect.extract_feat(img) # img_feats on 5 levels
-        inst_pred, cate_pred = self.detect.bbox_head(img_feats) # 5 levels
-        depth = F.interpolate(depth.unsqueeze(1), size=(height,width),mode='nearest')
-        rgbd = torch.cat((img, depth), dim=1)
-        rgbd_feats = self.rgbd_input(rgbd)
-        
-        img_feats = torch.cat([F.interpolate(
-            i, size=(32, 32), mode='bilinear', align_corners=True) \
-                for i in img_feats],dim=1)
-        
-        seg_masks = self.detect.bbox_head.get_seg(inst_pred, cate_pred, img)
-        feats = self.feat_fusion(rgbd_feats, img_feats)
-
-        pcd_preds = []
-        if len(seg_masks) != 0:
-            for f, s in zip(feats, seg_masks):
-                f = f.unsqueeze(0)
-                idx = torch.argmax(s[2],dim=0).item()
-                # print(idx)
-                s_0 = s[0][idx,:,:].unsqueeze(0).unsqueeze(0).float()
-                # print(f.shape, s_0.shape, s[1].shape, s[2].shape)
-                
-                latent = self.mask_fusion(f, s_0)
-                # print(latent.shape)
-                pcd_pred = self.decoder(latent).unsqueeze(0)
-                pcd_preds.append(pcd_pred)
         return pcd_preds
 
 
-    def forward(
-        self, 
-        img, 
-        depth,  
-        pcd=None, 
-        masks=None, 
-        bboxes=None, 
+    def forward(self, img, depth, pcd=None, masks=None, bboxes=None, 
         labels=None, mode='train'):
         if mode == 'test' or mode == 'val':
             return self.forward_inference(img, depth)
         else:
             return self.forward_loss(img, depth, pcd,  masks, bboxes, labels)
+
+
+
+def multi_apply(func, *args, **kwargs):
+    """Apply function to a list of arguments.
+
+    Note:
+        This function applies the ``func`` to multiple inputs and
+            map the multiple outputs of the ``func`` into different
+            list. Each list contains the same type of outputs corresponding
+            to different inputs.
+
+    Args:
+        func (Function): A function that will be applied to a list of
+            arguments
+
+    Returns:
+        tuple(list): A tuple containing multiple list, each list contains
+            a kind of returned results by the function
+    """
+    pfunc = partial(func, **kwargs) if kwargs else func
+    map_results = map(pfunc, *args)
+    return tuple(map(list, zip(*map_results)))
+
+def print_nested_list_shape(lst, prefix=""):
+    if isinstance(lst, list):
+        print(f"{prefix}List of shape {len(lst)}")
+        for item in lst:
+            print_nested_list_shape(item, prefix + "  ")
+    elif isinstance(lst, torch.Tensor):
+        print(f"{prefix}Tensor of shape {lst.shape}")
+
+def imrescale(img, scale):
+    # Convert the image to a PyTorch tensor and add an extra batch dimension
+    # img = torch.from_numpy(img).unsqueeze(0)
+
+    # Compute the new size
+    h, w = img.shape[-2:]
+    new_size = (int(h * scale), int(w * scale))
+
+    # Use F.interpolate to resize the image
+    rescaled_img = F.interpolate(img.unsqueeze(0), size=new_size, mode='bilinear', align_corners=False)
+
+    # Remove the extra batch dimension and convert the image back to a numpy array
+    rescaled_img = rescaled_img.squeeze(0)
+
+    return rescaled_img

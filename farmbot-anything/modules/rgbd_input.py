@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 cwd = os.getcwd()
 sys.path.append(cwd)
-from cbrelu import CBRelu
+from .cbrelu import CBRelu
 
 random.seed(0)
 torch.manual_seed(0)

@@ -5,12 +5,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from pytorch3d.loss import chamfer_distance
-from utils import *
+from .utils import *
 
-from backbone import resnet18
-from fpn import FPN
-from body import Body
-from rgbd_input import RGBDInput
+from .backbone import resnet18
+from .fpn import FPN
+from .body import Body
+from .rgbd_input import RGBDInput
 random.seed(0)
 torch.manual_seed(0)
 
@@ -18,7 +18,7 @@ torch.manual_seed(0)
 
 class FAMENet(nn.Module):
     """entire segmentation module"""
-    def __init__(self, cfg, device, num_class=49):
+    def __init__(self, cfg, device, num_class=50):
         # FAMENet 분석 모듈 초기화 설정
         super(FAMENet, self).__init__()
         self.cfg            = cfg
@@ -26,30 +26,34 @@ class FAMENet(nn.Module):
         self.batch_size     = cfg['4_batch_size']       
         self.num_class      = num_class
         self.training       = True
+        self.device         = device
 
         self.backbone       = resnet18().to(device=device)
         self.fpn            = FPN().to(device=device)
-
-        self.body           = Body(cfg, num_classes=num_class,
-                                in_channels=128,
-                                device=device,
-                                seg_feat_channels=256,
-                                stacked_convs=7,
-                                strides=[8, 8, 16, 32, 32],
-                                scale_ranges=((1, 96), (48, 192), (96, 384), \
-                                            (192, 768), (384, 2048)),
-                                num_grids=[40, 36, 24, 16, 12]).to(device=device)
-
+        self.body           = Body(cfg, device=device).to(device=device)
         self.rgbd_input     = RGBDInput(cfg).to(device=device)
-   
 
-    def forward(self, img, depth, pcd=None, masks=None, bboxes=None, labels=None, mode='train'):
-        rgbd_feat = self.rgbd_input(img, depth)
+    # def forward(self, img, depth, pcd=None, masks=None, bboxes=None, labels=None):
+    #     # Evaluate FAMENet
+    #     rgbd_feat = self.rgbd_input(img, depth) 
+    #     x = self.backbone(img)
+    #     x = self.fpn(x)
+    #     ins_pred, cate_pred, pcd_pred= self.body(x, rgbd_feat)
+    #     return ins_pred, cate_pred, pcd_pred
+
+    def forward(self, img, depth, pcd=None, masks=None, bboxes=None, labels=None):
+        # Train FAMENet
+        batch, channels, height, width = img.shape
+        rgbd_feat = self.rgbd_input(img, depth.unsqueeze(1)) 
         x = self.backbone(img)
         x = self.fpn(x)
         ins_pred, cate_pred, pcd_pred= self.body(x, rgbd_feat)
-        return ins_pred, cate_pred, pcd_pred
-    
+
+        loss = self.body.loss(
+            ins_pred, cate_pred, pcd_pred,  # FAMENet outputs
+            bboxes, labels, masks, pcd)     # ground truth
+        return loss
+
 
 if __name__ == "__main__":
     import yaml

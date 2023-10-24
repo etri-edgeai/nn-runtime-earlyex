@@ -1,16 +1,17 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from utils import *
+from .utils import *
+from pytorch3d.loss import chamfer_distance
 
 class Body(nn.Module):
     def __init__(
             self,
             cfg,
             num_classes=50, #50 classes
-            in_channels=256, #256 fpn outputs
+            in_channels=128, #256 fpn outputs
             device='cuda:0',
-            seg_feat_channels=384,
+            seg_feat_channels=256,
             stacked_convs=7,
             sigma=0.2,
             cate_down_pos=0,
@@ -19,19 +20,20 @@ class Body(nn.Module):
             scale_ranges=((8, 32), (16, 64), (32, 128), (64, 256), (128, 512)),
             num_grids=[40, 36, 24, 16, 12]):
         super(Body, self).__init__()
-        self.num_classes = num_classes
-        self.seg_num_grids = num_grids
-        self.cate_out_channels = self.num_classes - 1
-        self.in_channels = in_channels
-        self.seg_feat_channels = seg_feat_channels
-        self.stacked_convs = stacked_convs
-        self.strides = strides
-        self.sigma = sigma
-        self.cate_down_pos = cate_down_pos # 0
+        self.device         = device
+        self.num_classes    = num_classes
+        self.seg_num_grids  = num_grids
+        self.stacked_convs  = stacked_convs
+        self.strides        = strides
+        self.sigma          = sigma
+        self.cate_down_pos  = cate_down_pos # 0
         self.base_edge_list = base_edge_list
-        self.scale_ranges = scale_ranges
-        self.loss_cate = FocalLoss( alpha=0.25, gamma=2.0)
+        self.scale_ranges   = scale_ranges
+        self.loss_cate      = FocalLoss( alpha=0.25, gamma=2.0)
+        self.in_channels    = in_channels
         self.ins_loss_weight = 3.0  #loss_ins['loss_weight']  #3.0
+        self.cate_out_channels = self.num_classes - 1
+        self.seg_feat_channels = seg_feat_channels
 
         self.init_layers()
         self.init_weights()
@@ -116,7 +118,6 @@ class Body(nn.Module):
                     eval=eval, upsampled_size=upsampled_size)
 
         return ins_pred, cate_pred, pcd_pred
-    
 
     def forward_single(self, x, idx, rgbd, eval=False, upsampled_size=None):
         # Set meshgrid
@@ -158,4 +159,176 @@ class Body(nn.Module):
             cate_pred.sigmoid(), kernel=2).permute(0, 2, 3, 1)
         pcd_pred = pcd_pred.view(pcd_pred.shape[0], -1, 3, 2048)               
 
-        return ins_pred, cate_pred, pcd_pred
+        return ins_pred, cate_pred, pcd_pred  
+
+    def gt_target_single(self, gt_bboxes_raw, gt_labels_raw, gt_masks_raw, 
+                           gt_pcd_raw, featmap_sizes=None):
+
+        # gt_pcd_raw = gt_pcd_raw.unsqueeze(0)
+
+        gt_areas = torch.sqrt((gt_bboxes_raw[:, 2] - gt_bboxes_raw[:, 0]) * (
+            gt_bboxes_raw[:, 3] - gt_bboxes_raw[:, 1]))
+
+        ins_label_list = []
+        cate_label_list = []
+        ins_ind_label_list = []
+        ins_pcd_list = []
+        
+        for (lower_bound, upper_bound), stride, featmap_size, num_grid \
+                in zip(self.scale_ranges, self.strides, featmap_sizes, self.seg_num_grids):
+            ins_label = torch.zeros([
+                num_grid ** 2, featmap_size[0], featmap_size[1]], \
+                    dtype=torch.uint8, device=self.device)
+            cate_label = torch.zeros([num_grid, num_grid], \
+                                     dtype=torch.int64, device=self.device)
+            ins_ind_label = torch.zeros([num_grid ** 2], \
+                                        dtype=torch.bool, device=self.device)
+            pcd_label = torch.zeros([
+                num_grid ** 2, 3, 2048], \
+                    dtype=torch.float32, device=self.device)
+            
+            hit_indices = ((gt_areas >= lower_bound) & (gt_areas <= upper_bound)).nonzero().flatten()
+            if len(hit_indices) == 0:
+                ins_label_list.append(ins_label)
+                cate_label_list.append(cate_label)
+                ins_ind_label_list.append(ins_ind_label)
+                ins_pcd_list.append(pcd_label)
+                continue
+            
+            gt_labels = gt_labels_raw[hit_indices]
+            gt_masks = gt_masks_raw[hit_indices.cpu().numpy(), ...]
+            gt_bboxes = gt_bboxes_raw[hit_indices]
+            gt_pcds = gt_pcd_raw[hit_indices]
+
+            half_ws = 0.5 * (gt_bboxes[:, 2] - gt_bboxes[:, 0]) * self.sigma
+            half_hs = 0.5 * (gt_bboxes[:, 3] - gt_bboxes[:, 1]) * self.sigma
+
+            gt_masks_pt = gt_masks.to(device=self.device).view(-1,gt_masks.shape[-1], gt_masks.shape[-1])
+            center_ws, center_hs = center_of_mass(gt_masks_pt)
+            valid_mask_flags = gt_masks_pt.sum(dim=-1).sum(dim=-1) > 0
+            output_stride = stride / 2
+
+            for seg_mask, gt_label, gt_pcd, half_h, half_w, center_h, center_w, valid_mask_flag \
+                in zip(gt_masks, gt_labels, gt_pcds, half_hs, half_ws, center_hs, center_ws, valid_mask_flags):
+                if not valid_mask_flag:
+                   continue
+
+                upsampled_size = (featmap_sizes[0][0] * 4, featmap_sizes[0][1] * 4)
+                coord_w = int((center_w / upsampled_size[1]) // (1. / num_grid))
+                coord_h = int((center_h / upsampled_size[0]) // (1. / num_grid))
+
+                # left, top, right, down
+                top_box = max(0, int(((center_h - half_h) / upsampled_size[0]) // (1. / num_grid)))
+                down_box = min(num_grid - 1, int(((center_h + half_h) / upsampled_size[0]) // (1. / num_grid)))
+                left_box = max(0, int(((center_w - half_w) / upsampled_size[1]) // (1. / num_grid)))
+                right_box = min(num_grid - 1, int(((center_w + half_w) / upsampled_size[1]) // (1. / num_grid)))
+                top = max(top_box, coord_h-1)
+                down = min(down_box, coord_h+1)
+                left = max(coord_w-1, left_box)
+                right = min(right_box, coord_w+1)
+
+                # squared
+                cate_label[top:(down+1), left:(right+1)] = gt_label
+                seg_mask = imrescale(seg_mask, scale=1. / output_stride)
+                for i in range(top, down+1):
+                    for j in range(left, right+1):
+                        label = int(i * num_grid + j)
+                        ins_label[label, :seg_mask.shape[-2], :seg_mask.shape[-1]] = seg_mask
+                        ins_ind_label[label] = 1.0
+
+            ins_label_list.append(ins_label)
+            cate_label_list.append(cate_label)
+            ins_ind_label_list.append(ins_ind_label)
+            ins_pcd_list.append(pcd_label)
+
+        return ins_label_list, cate_label_list, ins_ind_label_list, ins_pcd_list
+
+    def loss(self, ins_preds, cate_preds, pcd_preds, gt_bbox_list, 
+             gt_label_list, gt_mask_list, gt_pcd_list):
+        device = self.device
+        featmap_sizes = [featmap.size()[-2:] for featmap in ins_preds]
+        ins_label_list, cate_label_list, ins_ind_label_list, ins_pcd_list = multi_apply(
+            self.gt_target_single, gt_bbox_list, gt_label_list,
+            gt_mask_list, gt_pcd_list, featmap_sizes=featmap_sizes)
+
+        ins_labels = [
+            torch.cat([ins_labels_level_img[ins_ind_labels_level_img, ...] 
+                       for ins_labels_level_img, ins_ind_labels_level_img 
+                       in zip(ins_labels_level, ins_ind_labels_level)], 0)
+                        for ins_labels_level, ins_ind_labels_level 
+                        in zip(zip(*ins_label_list), zip(*ins_ind_label_list))]
+        ins_preds = [
+            torch.cat([ins_preds_level_img[ins_ind_labels_level_img, ...]
+                       for ins_preds_level_img, ins_ind_labels_level_img 
+                       in zip(ins_preds_level, ins_ind_labels_level)], 0)
+                     for ins_preds_level, ins_ind_labels_level 
+                     in zip(ins_preds, zip(*ins_ind_label_list))]
+        ins_ind_labels = [
+            torch.cat([ins_ind_labels_level_img.flatten()
+                       for ins_ind_labels_level_img in ins_ind_labels_level])
+            for ins_ind_labels_level in zip(*ins_ind_label_list)
+        ]
+        flatten_ins_ind_labels = torch.cat(ins_ind_labels)
+        num_ins = flatten_ins_ind_labels.sum()
+
+        pcd_labels = [
+            torch.cat([pcd_labels_level_img[ins_ind_labels_level_img, ...]
+                          for pcd_labels_level_img, ins_ind_labels_level_img
+                            in zip(pcd_labels_level, ins_ind_labels_level)], 0)
+            for pcd_labels_level, ins_ind_labels_level
+            in zip(zip(*ins_pcd_list), zip(*ins_ind_label_list))
+        ]
+        
+        pcd_preds = [
+            torch.cat([pcd_preds_level_img[ins_ind_labels_level_img, ...]
+                            for pcd_preds_level_img, ins_ind_labels_level_img
+                                in zip(pcd_preds_level, ins_ind_labels_level)], 0)
+            for pcd_preds_level, ins_ind_labels_level
+            in zip(pcd_preds, zip(*ins_ind_label_list))
+        ]
+
+        # dice loss
+        inst_loss = []
+        for input, target in zip(ins_preds, ins_labels):
+            if input.size()[0] == 0:
+                continue
+            # input = torch.sigmoid(input)
+            inst_loss.append(dice_loss(input, target))
+        if len(inst_loss) != 0:
+            inst_loss = torch.cat(inst_loss).mean()
+        else:
+            inst_loss = torch.tensor([0.0]).to(device)
+        inst_loss = inst_loss * self.ins_loss_weight
+
+        # cate_loss
+        cate_labels = [
+            torch.cat([cate_labels_level_img.flatten()
+                       for cate_labels_level_img in cate_labels_level])
+            for cate_labels_level in zip(*cate_label_list)]
+        flatten_cate_labels = torch.cat(cate_labels)
+        cate_preds = [
+            cate_pred.permute(0, 2, 3, 1).reshape(-1, self.cate_out_channels)
+            for cate_pred in cate_preds]
+        flatten_cate_preds = torch.cat(cate_preds)
+        flatten_cate_labels = F.one_hot(
+            flatten_cate_labels.long(), num_classes= flatten_cate_preds.shape[-1]).float()
+        cate_loss = self.loss_cate(flatten_cate_preds, flatten_cate_labels)
+
+        # pcd loss
+        pcd_loss = []
+        for input, target in zip(pcd_preds, pcd_labels):
+            if input.size()[0] == 0:
+                continue
+            pcd_loss.append(chamfer_distance(input, target)[0])
+        if len(pcd_loss) != 0:
+            pcd_loss = torch.stack(pcd_loss).mean()
+        else:
+            pcd_loss = torch.tensor([0.0]).to(device)
+        pcd_loss = pcd_loss * self.ins_loss_weight
+
+        loss = {
+            'inst_loss': inst_loss,
+            'cate_loss': cate_loss,
+            'pcd_loss': pcd_loss
+        }
+        return loss
