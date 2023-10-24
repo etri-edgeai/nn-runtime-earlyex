@@ -8,8 +8,7 @@ class FPN(nn.Module):
                add_extra_convs=False,
                extra_convs_on_inputs=True,
                relu_before_extra_convs=False,
-               no_norm_on_lateral=False,
-               upsample_cfg=dict(mode='nearest')):
+               no_norm_on_lateral=False):
         super(FPN, self).__init__()
         # self.in_channels = cfg.neck.in_channels  #[64, 128, 256, 512] resnet18
         self.in_channels = [64, 128, 256, 512]  #resnet18
@@ -23,7 +22,7 @@ class FPN(nn.Module):
         self.start_level = 0
         self.relu_before_extra_convs = relu_before_extra_convs
         self.no_norm_on_lateral = no_norm_on_lateral
-        self.upsample_cfg = upsample_cfg.copy()
+
         if end_level == -1:                  #default -1
             self.backbone_end_level = self.num_ins
             assert self.num_outs >= self.num_ins - self.start_level
@@ -95,8 +94,6 @@ class FPN(nn.Module):
         ]
 
         if self.num_outs > len(outs):
-            # use max pool to get more levels on top of outputs
-            # (e.g., Faster R-CNN, Mask R-CNN)
             if not self.add_extra_convs:
                 for i in range(self.num_outs - used_backbone_levels):
                     outs.append(F.max_pool2d(outs[-1], 1, stride=2))
