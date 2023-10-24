@@ -12,7 +12,7 @@ import yaml
 from torch.autograd import Variable
 from torch.cuda.amp import GradScaler, autocast
 from tqdm import tqdm
-import horovod.torch as hvd
+# import horovod.torch as hvd
 import torch.multiprocessing as mp
 from torch.utils.data.distributed import DistributedSampler
 
@@ -41,15 +41,17 @@ class Trainer():
     def __init__(self, cfg):
         """Init config"""
         self.cfg = cfg
-        self.device = hvd.rank()
+        # self.device = hvd.rank()
+        self.device = torch.cuda.current_device()
 
         # Load dataset        
         self.dataset = ShapeNetRenderedDataset(self.cfg, "train")
         self.dataloader = torch.utils.data.DataLoader(
             self.dataset, batch_size=cfg['3_batch_size'], shuffle=False, 
             num_workers=cfg['3_num_workers'],  collate_fn=custom_collate_fn,
-            sampler=DistributedSampler(
-                self.dataset, num_replicas=hvd.size(), rank=hvd.rank()))
+            # sampler=DistributedSampler(
+            #     self.dataset, num_replicas=hvd.size(), rank=hvd.rank())
+                )
 
         # Find total number of classes
         jsonpath = cfg['0_train_json']
@@ -76,14 +78,15 @@ class Trainer():
         # Setup optimizer
         optimizer = torch.optim.SGD(
             self.model.parameters(), lr=self.cfg['3_learning_rate'])
-        optimizer = hvd.DistributedOptimizer(
-            optimizer, 
-            named_parameters=self.model.named_parameters())
+        # optimizer = hvd.DistributedOptimizer(
+        #     optimizer, 
+        #     named_parameters=self.model.named_parameters()
+        #     )
 
         # Broadcast parameters from rank 0 to all other processes
-        hvd.broadcast_parameters(
-            self.model.state_dict(), root_rank=0)
-        hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+        # hvd.broadcast_parameters(
+        #     self.model.state_dict(), root_rank=0)
+        # hvd.broadcast_optimizer_state(optimizer, root_rank=0)
 
         # Start train loop
         for epoch in range(self.cfg['3_epochs']):
@@ -126,7 +129,8 @@ class Trainer():
                 # Print statistics
                 end_time = time.time()
                 elapsed_time = end_time - start_time
-                if hvd.rank() == 0 and i % 50 == 0:
+                # if hvd.rank() == 0 and i % 50 == 0:
+                if i%50 == 0:
                     total_iterations = len(self.dataloader)
                     remaining_iterations = total_iterations - i
                     remaining_time = remaining_iterations * elapsed_time
@@ -151,7 +155,8 @@ class Trainer():
             print(f"Category Loss: {avg_cate_loss:.4f}")
 
             # Save checkpoint
-            if epoch % 5 == 0 and hvd.rank()==0:
+            # if epoch % 5 == 0 and hvd.rank()==0:
+            if epoch % 5 == 0:
                 print("Saving checkpoint...")
                 torch.save(
                     self.model.state_dict(), self.cfg['3_solo_checkpoints'])
@@ -166,11 +171,14 @@ def main(cfg, rank):
 
 if __name__ == '__main__':
     """Main function"""
-    hvd.init()
+    # hvd.init()
     torch.cuda.empty_cache()
-    torch.cuda.set_device(hvd.local_rank())
+    # torch.cuda.set_device(hvd.local_rank())
     mp.set_start_method('spawn')
     # Load configuration from YAML file
     with open("./config/config.yml", 'r') as f:
         cfg = yaml.safe_load(f)
-    main(cfg, rank=hvd.rank())    
+    main(cfg, 
+    rank = torch.cuda.current_device()
+    # rank=hvd.rank()
+    )    
