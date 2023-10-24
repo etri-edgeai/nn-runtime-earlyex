@@ -13,7 +13,7 @@ from pytorch3d.loss import chamfer_distance
 from torch.autograd import Variable
 from torch.cuda.amp import GradScaler, autocast
 from tqdm import tqdm
-import horovod.torch as hvd
+# import horovod.torch as hvd
 
 cwd = os.getcwd()
 sys.path.append(cwd)
@@ -47,17 +47,16 @@ class Trainer():
         self.dataloader = torch.utils.data.DataLoader(
             self.dataset, batch_size=cfg['4_batch_size'], shuffle=False, 
             num_workers=cfg['4_num_workers'], collate_fn=custom_collate_fn,
-            sampler=DistributedSampler(
-                self.dataset, num_replicas=hvd.size(), rank=hvd.rank())
-            
+            # sampler=DistributedSampler(
+            #     self.dataset, num_replicas=hvd.size(), rank=hvd.rank())
             )
         self.val_dataset = ShapeNetRenderedDataset(self.cfg, "val")
-        self.val_dataloader = torch.utils.data.DataLoader(
-            self.val_dataset, batch_size=1, shuffle=False, 
-            num_workers=8, collate_fn=custom_collate_fn,
-            sampler=DistributedSampler(
-                self.val_dataset, num_replicas=hvd.size(), rank=hvd.rank())
-            )
+        # self.val_dataloader = torch.utils.data.DataLoader(
+        #     self.val_dataset, batch_size=1, shuffle=False, 
+        #     num_workers=8, collate_fn=custom_collate_fn,
+        #     sampler=DistributedSampler(
+        #         self.val_dataset, num_replicas=hvd.size(), rank=hvd.rank())
+        #     )
 
         self.model = E3RFnet(self.cfg,  num_class=49, device = self.device)
         # count_parameters(self.model)
@@ -87,13 +86,13 @@ class Trainer():
         optimizer = torch.optim.Adam(
             self.model.parameters(), lr=self.cfg['4_learning_rate'])
 
-        optimizer = hvd.DistributedOptimizer(
-            optimizer, 
-            named_parameters=self.model.named_parameters())
+        # optimizer = hvd.DistributedOptimizer(
+        #     optimizer, 
+        #     named_parameters=self.model.named_parameters())
 
-        hvd.broadcast_parameters(
-            self.model.state_dict(), root_rank=0)
-        hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+        # hvd.broadcast_parameters(
+        #     self.model.state_dict(), root_rank=0)
+        # hvd.broadcast_optimizer_state(optimizer, root_rank=0)
 
         for epoch in range(self.epoch):
             # pbar = tqdm(self.dataloader)
@@ -111,9 +110,11 @@ class Trainer():
                     d.to(self.device) for d in data['depth']], dim=0)
                 pcd = torch.stack([
                     p.to(self.device) for p in data['pcd']],dim=0)
-                apcd = torch.stack([
-                    p.to(self.device) for p in data['apcd']],dim=0)
-                
+                # apcd = torch.stack([
+                #     p.to(self.device) for p in data['apcd']],dim=0)
+                apcd = [torch.stack([
+                    p.to(self.device) for p in a],dim=0) \
+                        for a in data['apcd']]
                 masks = [torch.stack(m).to(self.device) \
                          for m in data['masks']]
                 bboxes = [torch.stack(b).to(self.device) \
@@ -141,7 +142,8 @@ class Trainer():
                 optimizer.step()
                 end_time = time.time()
                 elapsed_time = end_time - start_time
-                if hvd.rank() == 0 and i % 50 == 0:
+                # if hvd.rank() == 0 and i % 50 == 0:
+                if i % 50 == 0:
                     total_iterations = len(self.dataloader)
                     remaining_iterations = total_iterations - i
                     remaining_time = remaining_iterations * elapsed_time
@@ -159,7 +161,8 @@ class Trainer():
             print(f"pcd_loss: {total_pcd_loss / num_batches:.4f}")
             print(f"inst_loss: {total_inst_loss / num_batches:.4f}")
             print(f"cate_loss: {total_cate_loss / num_batches:.4f}")
-            if epoch % 5 == 0 and hvd.rank() == 0:
+            # if epoch % 5 == 0 and hvd.rank() == 0:
+            if epoch % 5 == 0:
                 torch.save(self.model.state_dict(),  cfg['4_se3rf_checkpoints'])
                 print("Model saved!")
 
@@ -175,13 +178,16 @@ def main(cfg, rank):
 
 if __name__ == '__main__':
     """Main function"""
-    hvd.init()
+    # hvd.init()
     torch.cuda.empty_cache()
-    torch.cuda.set_device(hvd.local_rank())
+    # torch.cuda.set_device(hvd.local_rank())
 
     mp.set_start_method('spawn')
     # Load configuration from YAML file
     with open("./config/config.yml", 'r') as f:
         cfg = yaml.safe_load(f)
-    main(cfg, rank=hvd.rank())
+    main(cfg,
+         rank = torch.device("cuda:0")
+        #  rank=hvd.rank()
+         )
 
