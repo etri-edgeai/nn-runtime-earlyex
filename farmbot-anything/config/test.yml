@@ -1,0 +1,50 @@
+---
+name: 'Fruit Ripeness & Utility Measure Tool(FRUT)'
+version: '1.0'
+description: 'Fruit Ripeness & Utility Measure Tool(FRUT)'
+author: 'JYP'
+
+# Train FRUTNet Parameters
+batch_size:       48
+num_workers:      16
+embedding_dims:   2048
+learning_rate:    0.00001
+epochs:           200
+num_class :       2
+backbone:        'resnet18'
+
+save_checkpoints:  './checkpoints/train.pth'
+pretrain_checkpoints: './checkpoints/pretrain.pth'
+
+# Global Parameters
+0_img_size:     256
+0_pcd_num:      2048
+0_dataset_dir:  './data2/rendered/'
+0_train_json:   './data2/rendered/train.json'
+0_test_json:    './data2/rendered/val.json'
+
+# Dataset preprocessing
+0_input:  './data2/metadata.csv'
+0_output: './data2/metadata_.csv'
+# 1. dataset rendering
+1_num_views:          16
+1_num_rand:           1
+1_azimuth_range_0:    0
+1_azimuth_range_1:    180
+1_elevation_range_0:  -90
+1_elevation_range_1:  90
+1_distance_range_0:   2
+1_distance_range_1:   8
+1_obj_dir:            './data2/'
+1_dataset_dir:        './data2/rendered/'
+1_input_csv:          './data2/metadata.csv'
+1_test_json:          './data2/rendered/val.json'
+1_train_json:         './data2/rendered/train.json'
+1_dataset_json:       './data2/rendered/coco_annotations.json'
+1_h5_path:            './data2/rendered/dataset.h5'
+1_h5_train:           "./data2/rendered/train.h5"
+1_h5_test:            "./data2/rendered/test.h5"
+1_lmdb_train:         "./data2/rendered/train_lmdb"
+1_lmdb_test:          "./data2/rendered/test_lmdb"
+
+
