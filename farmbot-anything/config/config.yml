@@ -1,0 +1,141 @@
+---
+name: 'Farmbot Anything Model on Edge(FAME)'
+version: '0.1'
+description: 'Farmbot Anything Model on Edge(FAME)'
+author: 'JYP'
+
+# Global Parameters
+0_img_size:     256
+0_pcd_num:      2048
+0_dataset_dir:  './data/rendered/'
+0_train_json:   './data/rendered/train.json'
+0_test_json:    './data/rendered/val.json'
+
+# 0. dataset preprocessing
+0_input:  './data/metadata.csv'
+0_output: './data/metadata_0.csv'
+
+# 1. dataset rendering
+1_num_views:          18
+1_azimuth_range_0:    0
+1_azimuth_range_1:    360
+1_elevation_range_0:  0
+1_elevation_range_1:  90
+1_distance_range_0:   2
+1_distance_range_1:   7
+1_obj_dir:            './data/models/'
+1_dataset_dir:        './data/rendered/'
+1_input_csv:          './data/metadata_0.csv'
+1_test_json:          './data/rendered/val.json'
+1_train_json:         './data/rendered/train.json'
+1_dataset_json:       './data/rendered/coco_annotations.json'
+
+# 2. train pcd autoencoder
+2_device:           'cuda:0'
+2_batch_size:       16
+2_num_workers:      16
+2_embedding_dims:   2048
+2_learning_rate:    0.0001
+2_epochs:           50
+2_pcd_checkpoints:  './checkpoints/2.pcd_autoencoder.pth'
+
+# 3. train segmenation network
+3_batch_size:       8
+3_num_workers:      4
+3_embedding_dims:   2048
+3_learning_rate:    0.001
+3_epochs:           50
+3_solo_checkpoints:  './checkpoints/3a_solo.pth'
+
+
+# 4. train e3rf network
+4_batch_size:       6
+4_num_workers:      6
+4_embedding_dims:   2048
+4_learning_rate:    0.0001
+4_epochs:           50
+4_se3rf_checkpoints:  './checkpoints/4a_e3rf.pth'
+
+# 5. validate and visualize e3rf network
+5_se3rf_checkpoints:  './checkpoints/4a_e3rf.pth'
+5_batch_size:       1
+5_num_workers:      0
+5_output_dir:       './output/'
+
+
+
+# Directory
+save-dir: './checkpoints/'
+demo-dir: './results/'
+
+
+device: "cuda"
+
+# Dataset
+# img_size: 256
+# num_views: 18
+# pcd_samples: 2048
+# azimuth_range_0: 0
+# azimuth_range_1: 360
+# elevation_range_0: 0
+# elevation_range_1: 90
+# distance_range_0: 2
+# distance_range_1: 7
+
+# shapenet
+root:      '/data/jyp/farmbot.ai/2.shapenet/shapenetsem/'
+obj:       'model_obj/models/'
+binvox:    'model_binvox/models-binvox-solid/'
+screen:    'model_screen/screenshots/'
+texture:   'model_texture/textures/'
+metadata:  'metadata.csv'
+metadata2: 'metadata2.csv'
+metadata4: 'metadata4.csv'
+new_meta:  'metadata_processed.csv'
+rendered:  '/data/jyp/farmbot.ai/2.shapenet/shapenetsem/'
+
+
+# paths
+root: '/data/jyp/farmbot.ai/2.shapenet/shapenet_rendered/'
+metadata: 'metadata.csv'
+rgb_dir:   'rgb/'
+json_dir:  'pose/'
+depth_dir: 'depth/'
+seg_dir:   'seg/'
+pcd_dir:   'pcd/'
+obj_dir:   'obj/'
+apcd_dir:  'apcd/'
+rpcd_dir: 'rpcd/'
+coco_json: 'coco_annotations.json'
+
+# model
+checkpoints: './checkpoints/'
+pcd_checkpoints: './checkpoints/pcd_autoencoder.pth'
+e3rf_checkpoints: './checkpoints/4.e3rf.pth'
+seg_checkpoints: './checkpoints/3.seg.pth'
+solo_checkpoints: './checkpoints/3.solo.pth'
+se3rf_checkpoints: './checkpoints/4.se3rf.pth'
+
+
+
+split: 0.2
+epochs: 30
+lr: 0.0001
+lr_decay: 0.1
+lr_decay_step: 10
+gamma: 0.1 
+momentum: 0.9
+weight-decay: 0.00001
+val_epoch: 10
+save_epoch: 10
+batch_size: 8 
+
+test:
+  nms_pre: 200
+  score_thr: 0.1
+  mask_thr: 0.6
+  update_thr: 0.06
+  kernel: gaussian
+  sigma: 2.0
+  max_per_img: 100
+
