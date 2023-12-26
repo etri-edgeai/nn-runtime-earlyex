@@ -1,4 +1,5 @@
 from typing import Dict, List, Optional, Tuple, Union
+import sys
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -69,7 +70,8 @@ def paste_mask_in_image(mask, box, im_h, im_w):
     mask = mask.expand((1, 1, -1, -1))
 
     # Resize mask
-    mask = F.interpolate(mask, size=(h, w), mode="bilinear", align_corners=False)
+    # mask = F.interpolate(mask, size=(h, w), mode="bilinear" )
+    mask = F.interpolate(mask, size=(h, w), mode="neareset" )
     mask = mask[0][0]
 
     im_mask = torch.zeros((im_h, im_w), dtype=mask.dtype, device=mask.device)
@@ -235,7 +237,7 @@ def imrescale(img, scale):
     new_size = (int(h * scale), int(w * scale))
 
     # Use F.interpolate to resize the image
-    rescaled_img = F.interpolate(img.unsqueeze(0), size=new_size, mode='bilinear', align_corners=False)
+    rescaled_img = F.interpolate(img.unsqueeze(0), size=new_size, mode='bilinear' )
 
     # Remove the extra batch dimension and convert the image back to a numpy array
     rescaled_img = rescaled_img.squeeze(0)
@@ -270,4 +272,64 @@ class Reshape(nn.Module):
 
     def forward(self, x):
         return x.view(*self.shape)
-    
+
+
+# Helper function to compute strides
+def compute_strides(cate_labels, seg_num_grids, original_strides):
+    size_trans = cate_labels.new_tensor(seg_num_grids).pow(2).cumsum(0)
+    strides = inds.new_ones(size_trans[-1])
+    n_stage = len(seg_num_grids)
+    strides[:size_trans[0]] *= original_strides[0]
+    for ind_ in range(1, n_stage):
+        strides[size_trans[ind_ - 1]:size_trans[ind_]] *= original_strides[ind_]
+    strides = strides[inds[:, 0]]
+    return strides
+
+def preds_to_batch(input, ins_ind_label_list):
+        result = [
+            torch.cat([input_level_img[ins_ind_labels_level_img, ...]
+                        for input_level_img, ins_ind_labels_level_img
+                        in zip(input_level, ins_ind_labels_level)], 0)
+                        for input_level, ins_ind_labels_level
+                        in zip(input, zip(*ins_ind_label_list))]
+        return result
+
+def labels_to_batch(input, ins_ind_label_list):
+        result = [
+            torch.cat([input_level_img[ins_ind_labels_level_img, ...]
+                        for input_level_img, ins_ind_labels_level_img
+                        in zip(input_level, ins_ind_labels_level)], 0)
+                        for input_level, ins_ind_labels_level
+                        in zip(zip(*input), zip(*ins_ind_label_list))]
+        return result
+
+def color_points_white(point_cloud):
+    # Create an array of the same shape as the point cloud with all values set to 1
+    colors = torch.ones(point_cloud.shape[0], 3, device=point_cloud.device)
+    return colors
+
+def color_points(distances):
+    # Normalize the distances
+    distances = (distances - distances.min()) / (distances.max() - distances.min())
+    # Create a colormap
+    colormap = plt.get_cmap("cool")
+    colors = colormap(distances.detach().cpu().numpy())[:, :3]  # Get the RGB values
+    return torch.from_numpy(colors)
+
+def naive_meshgrid(x_range, y_range):
+    # Expand y_range to match the shape of the desired grid
+    y_expand = y_range.unsqueeze(1).expand(-1, x_range.shape[0])
+
+    # Expand x_range to match the shape of the desired grid
+    x_expand = x_range.unsqueeze(0).expand(y_range.shape[0], -1)
+
+    return y_expand, x_expand
+
+def naive_gather(cate_preds, inds):
+    gathered_elements = []
+    for i in range(inds.size(0)):
+        for j in range(inds.size(1)):
+            if inds[i, j]:
+                gathered_elements.append(cate_preds[i,j].item())
+    return torch.tensor(
+        gathered_elements, dtype=cate_preds.dtype, device=cate_preds.device)
